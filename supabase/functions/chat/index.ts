@@ -40,14 +40,14 @@ serve(async (req) => {
       throw new Error(`Failed to fetch messages: ${messagesError.message}`)
     }
 
-    // Get OpenAI API key from environment
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
-    if (!openaiApiKey) {
-      throw new Error('OPENAI_API_KEY not configured')
+    // Get GLM API key from environment
+    const glmApiKey = Deno.env.get('GLM_API_KEY')
+    if (!glmApiKey) {
+      throw new Error('GLM_API_KEY not configured')
     }
 
-    // Prepare messages for OpenAI
-    const openaiMessages = [
+    // Prepare messages for GLM
+    const glmMessages = [
       {
         role: 'system',
         content: 'You are a helpful AI assistant. Please provide helpful, accurate, and friendly responses.'
@@ -58,31 +58,33 @@ serve(async (req) => {
       }))
     ]
 
-    // Call OpenAI API
-    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call GLM-4.5 API
+    const glmResponse = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${glmApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: openaiMessages,
+        model: 'glm-4.6',
+        messages: glmMessages,
         temperature: 0.7,
         max_tokens: 2000,
+        top_p: 0.9,
+        stream: false,
       }),
     })
 
-    if (!openaiResponse.ok) {
-      const errorData = await openaiResponse.json()
-      throw new Error(`OpenAI API error: ${JSON.stringify(errorData)}`)
+    if (!glmResponse.ok) {
+      const errorData = await glmResponse.json()
+      throw new Error(`GLM API error: ${JSON.stringify(errorData)}`)
     }
 
-    const openaiData = await openaiResponse.json()
-    const aiMessage = openaiData.choices[0]?.message?.content
+    const glmData = await glmResponse.json()
+    const aiMessage = glmData.choices[0]?.message?.content
 
     if (!aiMessage) {
-      throw new Error('No response from OpenAI')
+      throw new Error('No response from GLM')
     }
 
     // Save AI response to database

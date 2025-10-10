@@ -206,7 +206,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger to auto-create user profile
-CREATE TRIGGER on_auth_user_created_mine
+CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_new_user();
@@ -250,7 +250,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Trigger to auto-create OAuth connection
-CREATE TRIGGER on_auth_user_oauth_created_mine
+CREATE TRIGGER on_auth_user_oauth_created
     AFTER INSERT ON auth.users
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_new_oauth_user();
