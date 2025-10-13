@@ -61,7 +61,7 @@
         <!-- User Menu -->
         <div v-if="showUserMenu" class="relative">
           <button
-            @click="toggleUserMenu"
+            @click.stop="toggleUserMenu"
             class="p-1 rounded-full hover:ring-2 hover:ring-primary-500 transition-all btn-touch"
             aria-label="用户菜单"
           >
