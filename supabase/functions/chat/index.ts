@@ -58,7 +58,7 @@ serve(async (req) => {
       }))
     ]
 
-    // Call GLM-4.5 API
+    // Call GLM-4.6 API with streaming
     const glmResponse = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
       method: 'POST',
       headers: {
@@ -69,9 +69,9 @@ serve(async (req) => {
         model: 'glm-4.6',
         messages: glmMessages,
         temperature: 0.7,
-        max_tokens: 2000,
+        max_tokens: 65536, // GLM-4.6 支持最大 65536 tokens (64K) 输出
         top_p: 0.9,
-        stream: false,
+        stream: true,
       }),
     })
 
@@ -80,39 +80,147 @@ serve(async (req) => {
       throw new Error(`GLM API error: ${JSON.stringify(errorData)}`)
     }
 
-    const glmData = await glmResponse.json()
-    const aiMessage = glmData.choices[0]?.message?.content
+    // Create a ReadableStream to handle SSE
+    const stream = new ReadableStream({
+      async start(controller) {
+        const reader = glmResponse.body?.getReader()
+        const decoder = new TextDecoder()
+        let fullContent = ''
+        let isAborted = false
 
-    if (!aiMessage) {
-      throw new Error('No response from GLM')
-    }
+        if (!reader) {
+          controller.close()
+          return
+        }
 
-    // Save AI response to database
-    const { data: savedMessage, error: saveError } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversation_id,
-        role: 'assistant',
-        content: aiMessage
-      })
-      .select()
-      .single()
+        // 检测客户端断开连接
+        const checkAbort = () => {
+          if (isAborted) {
+            console.log('客户端已断开连接，停止处理')
+            return true
+          }
+          return false
+        }
 
-    if (saveError) {
-      throw new Error(`Failed to save message: ${saveError.message}`)
-    }
+        try {
+          while (true) {
+            // 检查客户端是否已断开
+            if (checkAbort()) {
+              console.log('检测到客户端断开，中止流式处理')
+              break
+            }
 
-    // Return success response
-    return new Response(
-      JSON.stringify({
-        success: true,
-        message: savedMessage
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200, 
+            const { done, value } = await reader.read()
+
+            if (done) {
+              // 只有在客户端未断开时才保存完整消息
+              if (!isAborted) {
+                // Save the complete message to database
+                const { data: savedMessage, error: saveError } = await supabase
+                  .from('messages')
+                  .insert({
+                    conversation_id: conversation_id,
+                    role: 'assistant',
+                    content: fullContent
+                  })
+                  .select()
+                  .single()
+
+                if (saveError) {
+                  console.error('Failed to save message:', saveError)
+                }
+
+                // Send final event with saved message
+                const finalEvent = `data: ${JSON.stringify({
+                  type: 'done',
+                  message: savedMessage
+                })}\n\n`
+                controller.enqueue(new TextEncoder().encode(finalEvent))
+              }
+              controller.close()
+              break
+            }
+
+            const chunk = decoder.decode(value, { stream: true })
+            const lines = chunk.split('\n').filter(line => line.trim() !== '')
+
+            for (const line of lines) {
+              // 再次检查客户端连接
+              if (checkAbort()) {
+                break
+              }
+
+              if (line.startsWith('data:')) {
+                const data = line.slice(5).trim()
+
+                if (data === '[DONE]') {
+                  continue
+                }
+
+                try {
+                  const parsed = JSON.parse(data)
+                  const content = parsed.choices?.[0]?.delta?.content
+
+                  if (content) {
+                    fullContent += content
+                    // Forward the chunk to client
+                    const event = `data: ${JSON.stringify({
+                      type: 'chunk',
+                      content: content
+                    })}\n\n`
+
+                    try {
+                      controller.enqueue(new TextEncoder().encode(event))
+                    } catch (e) {
+                      // 如果无法发送数据，说明客户端已断开
+                      console.log('客户端连接已断开')
+                      isAborted = true
+                      break
+                    }
+                  }
+                } catch (e) {
+                  console.error('Error parsing SSE data:', e)
+                }
+              }
+            }
+          }
+        } catch (error) {
+          // 捕获客户端断开的错误
+          if (error.name === 'TypeError' || error.message.includes('aborted')) {
+            console.log('客户端连接被中断')
+            isAborted = true
+          } else {
+            console.error('Stream error:', error)
+            if (!isAborted) {
+              const errorEvent = `data: ${JSON.stringify({
+                type: 'error',
+                error: error.message
+              })}\n\n`
+              try {
+                controller.enqueue(new TextEncoder().encode(errorEvent))
+              } catch (e) {
+                console.log('无法发送错误消息，客户端已断开')
+              }
+            }
+          }
+          controller.close()
+        }
+      },
+      cancel() {
+        // 当客户端主动取消时调用
+        console.log('Stream cancelled by client')
       }
-    )
+    })
+
+    // Return SSE response
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    })
 
   } catch (error) {
     console.error('Error:', error)

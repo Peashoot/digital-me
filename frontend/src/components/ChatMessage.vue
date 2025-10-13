@@ -1,5 +1,44 @@
 <template>
+  <!-- System Message -->
   <div
+    v-if="message.role === 'system'"
+    class="flex justify-center mb-4 fade-in"
+  >
+    <div
+      class="max-w-2xl px-4 py-3 rounded-lg text-sm"
+      :class="[
+        message.is_error
+          ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
+          : 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+      ]"
+    >
+      <div class="flex items-start gap-2">
+        <svg
+          v-if="message.is_error"
+          class="w-5 h-5 flex-shrink-0 mt-0.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <svg
+          v-else
+          class="w-5 h-5 flex-shrink-0 mt-0.5"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <span class="whitespace-pre-wrap">{{ message.content }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- User/Assistant Message -->
+  <div
+    v-else
     class="flex gap-3 mb-4 fade-in"
     :class="[
       message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
@@ -44,14 +83,14 @@
 
     <!-- Message Content -->
     <div
-      class="flex-1 max-w-[85%] sm:max-w-[75%]"
+      class="max-w-[85%] sm:max-w-[75%]"
       :class="[
-        message.role === 'user' ? 'items-end' : 'items-start'
+        message.role === 'user' ? 'flex flex-col items-end' : 'flex flex-col items-start'
       ]"
     >
       <!-- Message Bubble -->
       <div
-        class="px-4 py-3 rounded-2xl break-words"
+        class="px-4 py-3 rounded-2xl break-words inline-block"
         :class="[
           message.role === 'user'
             ? 'bg-primary-500 text-white rounded-tr-sm'

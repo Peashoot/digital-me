@@ -53,33 +53,80 @@
 
       <!-- Chat Area -->
       <div class="flex-1 flex flex-col min-w-0 min-h-0">
-        <!-- Empty State -->
+        <!-- Welcome State (no conversation selected) -->
         <div
           v-if="!currentConversation"
-          class="flex-1 flex items-center justify-center p-8"
+          class="flex-1 flex flex-col items-center justify-center p-8"
         >
-          <div class="text-center max-w-md">
+          <div class="text-center max-w-2xl w-full">
             <div class="inline-flex items-center justify-center w-20 h-20 bg-primary-100 dark:bg-primary-900/20 rounded-full mb-6">
               <svg class="w-10 h-10 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
               </svg>
             </div>
-            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              开始新对话
+            <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-3">
+              数字分身，另一个我
             </h2>
-            <p class="text-gray-600 dark:text-gray-400 mb-6">
-              选择一个对话或创建新的对话来开始聊天
+            <p class="text-gray-600 dark:text-gray-400 mb-8">
+              AI改变世界
             </p>
-            <button
-              @click="createNewChat"
-              class="px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-medium shadow-md hover:shadow-lg transition-all btn-touch"
-            >
-              创建新对话
-            </button>
+
+            <!-- Quick Action Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+              <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center">
+                <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center mb-3">
+                  <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">深度思考</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">分析研究和分析问题</p>
+              </div>
+
+              <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center">
+                <div class="w-10 h-10 bg-green-100 dark:bg-green-900/20 rounded-lg flex items-center justify-center mb-3">
+                  <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                  </svg>
+                </div>
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">代码</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">编写和调试代码</p>
+              </div>
+
+              <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center">
+                <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900/20 rounded-lg flex items-center justify-center mb-3">
+                  <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
+                </div>
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">翻译</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">多语言翻译和优化</p>
+              </div>
+
+              <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center">
+                <div class="w-10 h-10 bg-red-100 dark:bg-red-900/20 rounded-lg flex items-center justify-center mb-3">
+                  <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </div>
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">文档</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">创建和编辑文档</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chat Input at bottom -->
+          <div class="w-full max-w-4xl">
+            <ChatInput
+              :sending="sending"
+              :can-stop="canStop"
+              @send="handleSendMessage"
+              @stop="handleStopGeneration"
+            />
           </div>
         </div>
 
-        <!-- Chat Messages -->
+        <!-- Chat Messages (conversation selected) -->
         <div
           v-else
           class="flex-1 flex flex-col min-h-0"
@@ -134,9 +181,10 @@
 
           <!-- Chat Input -->
           <ChatInput
-            :disabled="!currentConversation"
             :sending="sending"
+            :can-stop="canStop"
             @send="handleSendMessage"
+            @stop="handleStopGeneration"
           />
         </div>
       </div>
@@ -161,6 +209,7 @@ const currentConversation = computed(() => chatStore.currentConversation)
 const messages = computed(() => chatStore.messages)
 const loading = computed(() => chatStore.loading)
 const sending = computed(() => chatStore.sending)
+const canStop = computed(() => chatStore.sending && chatStore.streamingMessage !== null)
 
 const currentConversationTitle = computed(() => {
   return currentConversation.value?.title || 'Digital Me'
@@ -181,6 +230,11 @@ onMounted(async () => {
   // Auto-select first conversation if exists
   if (chatStore.conversations.length > 0 && !currentConversation.value) {
     await chatStore.selectConversation(chatStore.conversations[0].id)
+    // Scroll to bottom after initial load
+    await nextTick()
+    setTimeout(() => {
+      scrollToBottom()
+    }, 150)
   }
 
   // Handle window resize
@@ -228,12 +282,9 @@ const onSidebarLeave = (el) => {
 /**
  * Create new chat
  */
-const createNewChat = async () => {
-  const result = await chatStore.createConversation('新对话')
-  if (result.success) {
-    closeSidebar()
-    scrollToBottom()
-  }
+const createNewChat = () => {
+  chatStore.enterNewConversationMode()
+  closeSidebar()
 }
 
 /**
@@ -253,6 +304,13 @@ const handleConversationCreate = () => {
 }
 
 /**
+ * Handle stop generation
+ */
+const handleStopGeneration = () => {
+  chatStore.stopGeneration()
+}
+
+/**
  * Handle send message
  */
 const handleSendMessage = async (content) => {
@@ -262,9 +320,21 @@ const handleSendMessage = async (content) => {
     await nextTick()
     scrollToBottom()
   } else {
-    // Show error notification (you can use Naive UI's notification here)
+    // 将错误作为系统消息显示在聊天中
     console.error('发送消息失败:', result.error)
-    alert('发送消息失败: ' + result.error)
+
+    // 添加系统错误消息
+    const errorMessage = {
+      id: `error-${Date.now()}`,
+      role: 'system',
+      content: `发送消息失败: ${result.error}`,
+      created_at: new Date().toISOString(),
+      is_error: true
+    }
+    chatStore.messages.push(errorMessage)
+
+    await nextTick()
+    scrollToBottom()
   }
 }
 
@@ -286,6 +356,23 @@ watch(
   () => messages.value.length,
   () => {
     scrollToBottom()
+  }
+)
+
+/**
+ * Watch current conversation change and scroll to bottom
+ */
+watch(
+  () => currentConversation.value?.id,
+  async (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      // Wait for messages to load
+      await nextTick()
+      // Add a small delay to ensure DOM is fully rendered
+      setTimeout(() => {
+        scrollToBottom()
+      }, 100)
+    }
   }
 )
 </script>

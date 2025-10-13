@@ -1,7 +1,7 @@
 <template>
   <div class="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 safe-bottom">
     <div class="max-w-4xl mx-auto px-4 py-3 sm:py-4">
-      <div class="flex items-end gap-2 sm:gap-3">
+      <div class="flex items-center gap-2 sm:gap-3">
         <!-- Textarea Input -->
         <div class="flex-1 relative">
           <textarea
@@ -11,7 +11,8 @@
             @input="adjustHeight"
             :placeholder="placeholder"
             :disabled="disabled"
-            class="w-full px-4 py-3 pr-12 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base"
+            :maxlength="maxLength"
+            class="w-full px-4 py-3 pr-12 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base overflow-hidden"
             :style="{ height: textareaHeight + 'px' }"
             rows="1"
           ></textarea>
@@ -27,6 +28,7 @@
 
         <!-- Send Button -->
         <button
+          v-if="!canStop"
           @click="handleSend"
           :disabled="!canSend"
           class="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-2xl bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white transition-all duration-200 btn-touch disabled:cursor-not-allowed disabled:opacity-50 shadow-md active:shadow-sm"
@@ -51,6 +53,22 @@
           >
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </button>
+
+        <!-- Stop Button -->
+        <button
+          v-else
+          @click="handleStop"
+          class="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-2xl bg-red-500 hover:bg-red-600 text-white transition-all duration-200 btn-touch shadow-md active:shadow-sm"
+        >
+          <!-- Stop Icon -->
+          <svg
+            class="w-5 h-5 sm:w-6 sm:h-6"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <rect x="6" y="6" width="12" height="12" rx="2" />
           </svg>
         </button>
       </div>
@@ -86,13 +104,17 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  canStop: {
+    type: Boolean,
+    default: false
+  },
   maxLength: {
     type: Number,
-    default: null
+    default: 2000
   },
   showCharCount: {
     type: Boolean,
-    default: false
+    default: true
   },
   showQuickActions: {
     type: Boolean,
@@ -112,7 +134,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['send', 'quick-action'])
+const emit = defineEmits(['send', 'quick-action', 'stop'])
 
 const inputText = ref('')
 const textareaRef = ref(null)
@@ -134,10 +156,14 @@ const adjustHeight = () => {
   nextTick(() => {
     if (!textareaRef.value) return
 
-    // Reset height to get accurate scrollHeight
-    textareaRef.value.style.height = 'auto'
+    // Reset height to minHeight to get accurate scrollHeight
+    textareaHeight.value = props.minHeight
+    textareaRef.value.style.height = props.minHeight + 'px'
 
+    // Get the scroll height after reset
     const scrollHeight = textareaRef.value.scrollHeight
+
+    // Calculate new height within min/max bounds
     const newHeight = Math.min(
       Math.max(scrollHeight, props.minHeight),
       props.maxHeight
@@ -158,6 +184,13 @@ const handleKeyDown = (event) => {
   }
 
   // Shift+Enter for new line (default behavior)
+}
+
+/**
+ * Stop generation
+ */
+const handleStop = () => {
+  emit('stop')
 }
 
 /**
@@ -211,6 +244,16 @@ defineExpose({
 </script>
 
 <style scoped>
+/* Hide scrollbar for textarea */
+textarea {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+textarea::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
 /* Hide scrollbar for quick actions on mobile */
 .overflow-x-auto {
   scrollbar-width: none;

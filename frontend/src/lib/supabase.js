@@ -33,4 +33,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
+// 导出配置信息供其他模块使用
+supabase.supabaseUrl = supabaseUrl
+supabase.supabaseKey = supabaseAnonKey
+
 export default supabase

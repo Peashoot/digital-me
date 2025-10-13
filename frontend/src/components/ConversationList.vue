@@ -94,7 +94,7 @@
             <!-- Actions -->
             <div class="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
-                @click.stop="deleteConversation(conversation.id)"
+                @click.stop="confirmDelete(conversation.id)"
                 class="p-1.5 rounded hover:bg-red-100 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
                 title="删除对话"
               >
@@ -107,6 +107,53 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <Transition name="modal">
+      <div
+        v-if="showDeleteModal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm"
+        @click.self="closeDeleteModal"
+      >
+        <div
+          class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all"
+          @click.stop
+        >
+          <!-- Icon -->
+          <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/20">
+            <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+
+          <!-- Title -->
+          <h3 class="text-lg font-semibold text-center text-gray-900 dark:text-white mb-2">
+            删除对话
+          </h3>
+
+          <!-- Message -->
+          <p class="text-sm text-center text-gray-600 dark:text-gray-400 mb-6">
+            确定要删除这个对话吗？此操作无法撤销。
+          </p>
+
+          <!-- Actions -->
+          <div class="flex gap-3">
+            <button
+              @click="closeDeleteModal"
+              class="flex-1 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+            >
+              取消
+            </button>
+            <button
+              @click="handleDelete"
+              class="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors shadow-sm"
+            >
+              删除
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -125,6 +172,8 @@ const emit = defineEmits(['select', 'create', 'delete'])
 
 const chatStore = useChatStore()
 const searchQuery = ref('')
+const showDeleteModal = ref(false)
+const conversationToDelete = ref(null)
 
 const loading = computed(() => chatStore.loading)
 const conversations = computed(() => chatStore.conversations)
@@ -145,11 +194,9 @@ const filteredConversations = computed(() => {
 /**
  * Create new conversation
  */
-const createNewConversation = async () => {
-  const result = await chatStore.createConversation()
-  if (result.success) {
-    emit('create', result.conversation)
-  }
+const createNewConversation = () => {
+  chatStore.enterNewConversationMode()
+  emit('create')
 }
 
 /**
@@ -161,17 +208,33 @@ const selectConversation = async (conversationId) => {
 }
 
 /**
- * Delete conversation with confirmation
+ * Show delete confirmation modal
  */
-const deleteConversation = async (conversationId) => {
-  if (!confirm('确定要删除这个对话吗？')) {
-    return
+const confirmDelete = (conversationId) => {
+  conversationToDelete.value = conversationId
+  showDeleteModal.value = true
+}
+
+/**
+ * Close delete confirmation modal
+ */
+const closeDeleteModal = () => {
+  showDeleteModal.value = false
+  conversationToDelete.value = null
+}
+
+/**
+ * Handle delete action
+ */
+const handleDelete = async () => {
+  if (!conversationToDelete.value) return
+
+  const result = await chatStore.deleteConversation(conversationToDelete.value)
+  if (result.success) {
+    emit('delete', conversationToDelete.value)
   }
 
-  const result = await chatStore.deleteConversation(conversationId)
-  if (result.success) {
-    emit('delete', conversationId)
-  }
+  closeDeleteModal()
 }
 
 /**
