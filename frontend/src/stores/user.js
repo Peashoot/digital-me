@@ -7,7 +7,8 @@ export const useUserStore = defineStore('user', {
     profile: null,
     session: null,
     loading: false,
-    error: null
+    error: null,
+    initialized: false
   }),
 
   getters: {
@@ -47,6 +48,7 @@ export const useUserStore = defineStore('user', {
         return { success: false, error: this.error }
       } finally {
         this.loading = false
+        this.initialized = true
       }
     },
 

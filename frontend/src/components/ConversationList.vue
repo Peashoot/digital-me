@@ -1,5 +1,5 @@
 <template>
-  <div class="h-full flex flex-col bg-white dark:bg-gray-800">
+  <div class="h-full flex flex-col bg-white dark:bg-gray-800 min-h-0">
     <!-- Header -->
     <div class="flex-shrink-0 px-4 py-4 border-b border-gray-200 dark:border-gray-700">
       <div class="flex items-center justify-between mb-3">
@@ -38,7 +38,7 @@
     </div>
 
     <!-- Conversation List -->
-    <div class="flex-1 overflow-y-auto custom-scrollbar">
+    <div class="flex-1 overflow-y-auto custom-scrollbar min-h-0">
       <!-- Loading State -->
       <div v-if="loading" class="p-4 text-center">
         <svg class="w-8 h-8 mx-auto text-primary-500 spin" fill="none" viewBox="0 0 24 24">
@@ -213,3 +213,4 @@ const formatTime = (dateString) => {
 <style scoped>
 /* Additional styles if needed */
 </style>
+

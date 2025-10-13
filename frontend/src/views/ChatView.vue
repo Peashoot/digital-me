@@ -22,7 +22,7 @@
     </MobileHeader>
 
     <!-- Main Content -->
-    <div class="flex-1 flex overflow-hidden">
+    <div class="flex-1 flex overflow-hidden min-h-0">
       <!-- Sidebar (Conversation List) -->
       <transition
         name="slide"
@@ -52,7 +52,7 @@
       </transition>
 
       <!-- Chat Area -->
-      <div class="flex-1 flex flex-col min-w-0">
+      <div class="flex-1 flex flex-col min-w-0 min-h-0">
         <!-- Empty State -->
         <div
           v-if="!currentConversation"
@@ -82,12 +82,12 @@
         <!-- Chat Messages -->
         <div
           v-else
-          class="flex-1 flex flex-col"
+          class="flex-1 flex flex-col min-h-0"
         >
           <!-- Messages Container -->
           <div
             ref="messagesContainer"
-            class="flex-1 overflow-y-auto custom-scrollbar px-4 py-6"
+            class="flex-1 overflow-y-auto custom-scrollbar px-4 py-6 min-h-0"
           >
             <div class="max-w-4xl mx-auto">
               <!-- Loading State -->
@@ -312,3 +312,4 @@ watch(
   }
 }
 </style>
+

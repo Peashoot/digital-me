@@ -46,18 +46,24 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const userStore = useUserStore()
+
+  // 等待用户状态初始化完成
+  if (!userStore.initialized) {
+    await userStore.initialize()
+  }
+
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
 
   if (requiresAuth && !userStore.isLoggedIn) {
-    // 需要登录但未登录，跳转到登录页
+    // 需要登录但未登录,跳转到登录页
     next({
       name: 'Login',
       query: { redirect: to.fullPath }
     })
   } else if (to.name === 'Login' && userStore.isLoggedIn) {
-    // 已登录用户访问登录页，跳转到首页
+    // 已登录用户访问登录页,跳转到首页
     next({ name: 'Home' })
   } else {
     next()
