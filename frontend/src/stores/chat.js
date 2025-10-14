@@ -314,7 +314,15 @@ export const useChatStore = defineStore('chat', {
       if (!userStore.userId) {
         return { success: false, error: '用户未登录' }
       }
+
+      // 防止重复提交
+      if (this.sending) {
+        console.log('正在发送中，忽略重复请求')
+        return { success: false, error: '正在发送中' }
+      }
+
       this.error = null
+      this.sending = true
 
       try {
         // 如果没有当前会话,先创建一个(使用消息前15个字符作为标题)
@@ -354,6 +362,8 @@ export const useChatStore = defineStore('chat', {
 
         // 添加到本地消息列表
         this.messages.push(userMessage)
+        // 记录用户消息 ID，防止 Realtime 重复添加
+        this.processedMessageIds.add(userMessage.id)
 
         // 2. 创建临时的流式消息对象(不立即添加到列表)
         const tempMessageId = `temp-${Date.now()}`
@@ -440,7 +450,6 @@ export const useChatStore = defineStore('chat', {
                     }
                     // 更新流式消息内容
                     this.streamingMessage.content += parsed.content
-                    this.sending = false
                   }
                   // 处理工具调用
                   else if (parsed.type === 'tool_call' && parsed.toolCall) {
@@ -449,16 +458,36 @@ export const useChatStore = defineStore('chat', {
                   }
                   // 处理完成
                   else if (parsed.type === 'done' && parsed.message) {
+                    console.log('[SSE] 收到 done 事件, message ID:', parsed.message.id)
+
+                    // 先记录已处理的消息 ID，防止 Realtime 重复添加（必须在所有操作之前）
+                    this.processedMessageIds.add(parsed.message.id)
+                    console.log('[SSE] 已记录消息 ID 到 processedMessageIds')
+
                     // 流式接收完成,用数据库中的消息替换临时消息
                     const index = this.messages.findIndex(m => m.id === tempMessageId)
+                    console.log('[SSE] 查找临时消息索引:', index, ', 临时消息ID:', tempMessageId)
+
                     if (index !== -1) {
+                      // 找到临时消息，替换它
                       this.messages[index] = parsed.message
+                      console.log('[SSE] 已替换临时消息为真实消息')
+                    } else {
+                      // 临时消息不在列表中，检查真实消息是否已存在
+                      const exists = this.messages.some(m => m.id === parsed.message.id)
+                      if (!exists) {
+                        // 真实消息也不存在，添加它
+                        this.messages.push(parsed.message)
+                        console.log('[SSE] 临时消息不存在，直接添加真实消息')
+                      } else {
+                        console.log('[SSE] 真实消息已存在，跳过添加')
+                      }
                     }
-                    // 记录已处理的消息 ID，防止 Realtime 重复添加
-                    this.processedMessageIds.add(parsed.message.id)
+
                     this.streamingMessage = null
                     this.streamingThinking = null
-                    console.log('消息接收完成:', parsed.message)
+                    this.sending = false
+                    console.log('[SSE] 消息接收完成')
                   } else if (parsed.type === 'error') {
                     throw new Error(parsed.error)
                   }
@@ -498,6 +527,7 @@ export const useChatStore = defineStore('chat', {
         return { success: true, message: userMessage }
       } catch (error) {
         console.error('发送消息失败:', error)
+        this.sending = false
 
         // 检查是否是用户主动中断
         if (error.name === 'AbortError') {
@@ -579,6 +609,9 @@ export const useChatStore = defineStore('chat', {
           this.messages[tempMessageIndex] = data
         }
 
+        // 记录消息 ID，防止 Realtime 重复添加
+        this.processedMessageIds.add(data.id)
+
         console.log('部分消息已保存:', data)
         return { success: true, message: data }
       } catch (error) {
@@ -610,18 +643,22 @@ export const useChatStore = defineStore('chat', {
             filter: `conversation_id=eq.${conversationId}`
           },
           (payload) => {
-            console.log('收到新消息:', payload.new)
+            console.log('[Realtime] 收到新消息事件, message ID:', payload.new.id)
             // 新消息插入时添加到本地
             const newMessage = payload.new
             const exists = this.messages.some(m => m.id === newMessage.id)
+            console.log('[Realtime] 消息是否已存在:', exists)
+
             // 检查是否已通过 SSE 处理过该消息
             const alreadyProcessed = this.processedMessageIds.has(newMessage.id)
+            console.log('[Realtime] 消息是否已被 SSE 处理:', alreadyProcessed)
+            console.log('[Realtime] processedMessageIds 大小:', this.processedMessageIds.size)
 
             if (!exists && !alreadyProcessed) {
-              console.log('添加新消息到本地列表')
+              console.log('[Realtime] 添加新消息到本地列表')
               this.messages.push(newMessage)
             } else {
-              console.log('消息已存在或已处理,跳过')
+              console.log('[Realtime] 消息已存在或已处理,跳过')
             }
           }
         )

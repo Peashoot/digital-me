@@ -23,7 +23,7 @@ export class ModelFactory {
     }
 
     // Moonshot (Kimi) models
-    if (modelName.startsWith('moonshot-')) {
+    if (modelName.startsWith('moonshot-') || modelName.startsWith('kimi-')) {
       return new MoonshotAdapter(apiKey, config)
     }
 
@@ -42,7 +42,7 @@ export class ModelFactory {
     if (modelName.startsWith('claude-')) {
       return 'ANTHROPIC_API_KEY'
     }
-    if (modelName.startsWith('moonshot-')) {
+    if (modelName.startsWith('moonshot-') || modelName.startsWith('kimi-')) {
       return 'MOONSHOT_API_KEY'
     }
     if (modelName.startsWith('glm-')) {
