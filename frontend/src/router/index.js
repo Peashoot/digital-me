@@ -27,6 +27,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/:conversationId',
+    name: 'Conversation',
+    component: () => import('@/views/ChatView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue')

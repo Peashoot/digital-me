@@ -117,7 +117,7 @@
 
           <!-- Chat Input at bottom -->
           <div class="w-full max-w-4xl">
-            <ChatInput
+            <ChatInputEnhanced
               :sending="sending"
               :can-stop="canStop"
               @send="handleSendMessage"
@@ -180,7 +180,7 @@
           </div>
 
           <!-- Chat Input -->
-          <ChatInput
+          <ChatInputEnhanced
             :sending="sending"
             :can-stop="canStop"
             @send="handleSendMessage"
@@ -194,12 +194,15 @@
 
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
 import MobileHeader from '@/components/MobileHeader.vue'
 import ConversationList from '@/components/ConversationList.vue'
 import ChatMessage from '@/components/ChatMessage.vue'
-import ChatInput from '@/components/ChatInput.vue'
+import ChatInputEnhanced from '@/components/ChatInputEnhanced.vue'
 
+const route = useRoute()
+const router = useRouter()
 const chatStore = useChatStore()
 
 const showSidebar = ref(window.innerWidth >= 1024) // Show on desktop by default
@@ -227,14 +230,19 @@ const currentConversationSubtitle = computed(() => {
 onMounted(async () => {
   await chatStore.initialize()
 
-  // Auto-select first conversation if exists
-  if (chatStore.conversations.length > 0 && !currentConversation.value) {
-    await chatStore.selectConversation(chatStore.conversations[0].id)
-    // Scroll to bottom after initial load
+  // Check if there's a conversation ID in the route
+  const conversationId = route.params.conversationId
+
+  if (conversationId) {
+    // Load conversation from route parameter
+    await chatStore.selectConversation(conversationId)
     await nextTick()
     setTimeout(() => {
       scrollToBottom()
     }, 150)
+  } else {
+    // No route param, stay in new conversation mode
+    chatStore.enterNewConversationMode()
   }
 
   // Handle window resize
@@ -284,6 +292,7 @@ const onSidebarLeave = (el) => {
  */
 const createNewChat = () => {
   chatStore.enterNewConversationMode()
+  router.push('/')
   closeSidebar()
 }
 
@@ -313,10 +322,15 @@ const handleStopGeneration = () => {
 /**
  * Handle send message
  */
-const handleSendMessage = async (content) => {
-  const result = await chatStore.sendMessage(content)
+const handleSendMessage = async (content, uploadedFiles = []) => {
+  const result = await chatStore.sendMessage(content, uploadedFiles)
 
   if (result.success) {
+    // If a new conversation was created, update the URL
+    if (chatStore.currentConversation && route.path === '/') {
+      await router.replace(`/${chatStore.currentConversation.id}`)
+    }
+
     await nextTick()
     scrollToBottom()
   } else {
@@ -356,6 +370,25 @@ watch(
   () => messages.value.length,
   () => {
     scrollToBottom()
+  }
+)
+
+/**
+ * Watch route changes to load conversation
+ */
+watch(
+  () => route.params.conversationId,
+  async (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      await chatStore.selectConversation(newId)
+      await nextTick()
+      setTimeout(() => {
+        scrollToBottom()
+      }, 100)
+    } else if (!newId && oldId) {
+      // Navigated to root, enter new conversation mode
+      chatStore.enterNewConversationMode()
+    }
   }
 )
 

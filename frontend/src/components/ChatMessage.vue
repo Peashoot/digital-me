@@ -88,6 +88,48 @@
         message.role === 'user' ? 'flex flex-col items-end' : 'flex flex-col items-start'
       ]"
     >
+      <!-- Thinking Process (Assistant only) -->
+      <div
+        v-if="message.role === 'assistant' && message.thinking"
+        class="mb-2 w-full"
+      >
+        <details class="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800 cursor-pointer">
+          <summary class="font-semibold text-blue-700 dark:text-blue-300 text-sm flex items-center gap-2 select-none">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            思考过程
+          </summary>
+          <div class="mt-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+            {{ message.thinking }}
+          </div>
+        </details>
+      </div>
+
+      <!-- Attachments (User only) -->
+      <div
+        v-if="message.role === 'user' && message.attachments && message.attachments.length > 0"
+        class="mb-2 flex flex-col gap-2 w-full"
+      >
+        <div
+          v-for="(attachment, index) in message.attachments"
+          :key="index"
+          class="flex items-center gap-2 px-3 py-2 bg-primary-100 dark:bg-primary-900/30 rounded-lg border border-primary-200 dark:border-primary-800"
+        >
+          <svg class="w-4 h-4 text-primary-600 dark:text-primary-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <div class="flex-1 min-w-0">
+            <div class="text-xs sm:text-sm font-medium text-primary-900 dark:text-primary-100 truncate">
+              {{ attachment.file_name }}
+            </div>
+            <div class="text-xs text-primary-600 dark:text-primary-400">
+              {{ formatFileSize(attachment.file_size) }}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Message Bubble -->
       <div
         class="px-4 py-3 rounded-2xl break-words inline-block"
@@ -111,6 +153,46 @@
         >
           {{ message.content }}
         </p>
+      </div>
+
+      <!-- Tool Calls (Assistant only) -->
+      <div
+        v-if="message.role === 'assistant' && message.tool_calls && message.tool_calls.length > 0"
+        class="mt-2 w-full"
+      >
+        <div
+          v-for="(call, index) in message.tool_calls"
+          :key="index"
+          class="p-2 bg-green-50 dark:bg-green-900/20 rounded-md text-xs border border-green-200 dark:border-green-800 mb-2"
+        >
+          <div class="flex items-center gap-2 mb-1">
+            <svg class="w-3 h-3 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <span class="font-semibold text-green-700 dark:text-green-300">
+              {{ getToolName(call.tool) }}
+            </span>
+          </div>
+          <div class="text-gray-600 dark:text-gray-400 pl-5">
+            查询: {{ call.query }}
+          </div>
+          <!-- Show search results if available -->
+          <div v-if="call.results && call.results.length > 0" class="mt-1 pl-5">
+            <div class="text-xs text-gray-500 dark:text-gray-500">
+              参考来源:
+              <a
+                v-for="(result, idx) in call.results.slice(0, 3)"
+                :key="idx"
+                :href="result.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="text-green-600 dark:text-green-400 hover:underline ml-1"
+              >
+                {{ result.title }}
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Timestamp -->
@@ -213,6 +295,29 @@ const formattedTime = computed(() => {
     minute: '2-digit'
   })
 })
+
+/**
+ * Format file size
+ */
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
+}
+
+/**
+ * Get tool display name
+ */
+const getToolName = (toolName) => {
+  const toolNames = {
+    'web_search': '网络搜索',
+    'code_interpreter': '代码执行',
+    'file_reader': '文件读取'
+  }
+  return toolNames[toolName] || toolName
+}
 </script>
 
 <style scoped>

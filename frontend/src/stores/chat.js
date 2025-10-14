@@ -12,19 +12,40 @@ export const useChatStore = defineStore('chat', {
     error: null,
     realtimeChannel: null,
     streamingMessage: null, // 存储正在流式接收的消息
-    abortController: null // 用于中断请求的控制器
+    streamingThinking: null, // 存储正在流式接收的思考过程
+    abortController: null, // 用于中断请求的控制器
+    processedMessageIds: new Set(), // 记录已通过 SSE 处理的消息 ID，避免 Realtime 重复添加
+
+    // 新增：对话配置
+    conversationConfig: {
+      model: 'glm-4-flash', // 默认模型
+      thinkMode: false, // 深度思考模式
+      webSearch: false, // 联网查询
+      temperature: 0.7,
+      maxTokens: 4096
+    },
+
+    // 新增：可用的 AI 模型列表
+    availableModels: [],
+
+    // 新增：文件上传相关
+    uploadingFiles: [],
+    uploadProgress: {}
   }),
 
   getters: {
     currentMessages: (state) => state.messages,
     conversationList: (state) => state.conversations,
     isLoading: (state) => state.loading,
-    isSending: (state) => state.sending
+    isSending: (state) => state.sending,
+    currentModel: (state) => state.conversationConfig.model,
+    isThinkModeEnabled: (state) => state.conversationConfig.thinkMode,
+    isWebSearchEnabled: (state) => state.conversationConfig.webSearch
   },
 
   actions: {
     /**
-     * 初始化聊天功能，加载会话列表
+     * 初始化聊天功能，加载会话列表和模型列表
      */
     async initialize() {
       const userStore = useUserStore()
@@ -32,12 +53,48 @@ export const useChatStore = defineStore('chat', {
 
       this.loading = true
       try {
-        await this.fetchConversations()
+        await Promise.all([
+          this.fetchConversations(),
+          this.fetchAvailableModels()
+        ])
       } catch (error) {
         console.error('初始化聊天失败:', error)
         this.error = error.message
       } finally {
         this.loading = false
+      }
+    },
+
+    /**
+     * 获取可用的 AI 模型列表
+     */
+    async fetchAvailableModels() {
+      try {
+        const { data, error } = await supabase
+          .from('ai_models')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+
+        if (error) throw error
+
+        this.availableModels = data || []
+
+        // 如果模型列表不为空，将第一个模型设为默认值
+        if (data && data.length > 0) {
+          this.conversationConfig.model = data[0].name
+        }
+
+        return { success: true, models: data }
+      } catch (error) {
+        console.error('获取模型列表失败:', error)
+        // 如果获取失败，使用默认模型列表
+        this.availableModels = [
+          { name: 'glm-4-flash', display_name: 'GLM-4-Flash', provider: 'zhipu', sort_order: 1 },
+          { name: 'claude-3-5-sonnet-20241022', display_name: 'Claude 3.5 Sonnet', provider: 'anthropic', sort_order: 2 },
+          { name: 'moonshot-v1-8k', display_name: 'Kimi (8K)', provider: 'moonshot', sort_order: 3 }
+        ]
+        return { success: false, error: error.message }
       }
     },
 
@@ -73,6 +130,18 @@ export const useChatStore = defineStore('chat', {
       // 清空当前会话和消息,进入"待创建"状态
       this.currentConversation = null
       this.messages = []
+      // 清空已处理的消息 ID 集合
+      this.processedMessageIds.clear()
+
+      // 重置对话配置为默认值
+      const defaultModel = this.availableModels.length > 0 ? this.availableModels[0].name : 'glm-4-flash'
+      this.conversationConfig = {
+        model: defaultModel,
+        thinkMode: false,
+        webSearch: false,
+        temperature: 0.7,
+        maxTokens: 4096
+      }
 
       // 取消之前的订阅
       if (this.realtimeChannel) {
@@ -132,6 +201,19 @@ export const useChatStore = defineStore('chat', {
         }
 
         this.currentConversation = conversation
+        // 清空已处理的消息 ID 集合
+        this.processedMessageIds.clear()
+
+        // 加载会话配置
+        if (conversation.metadata) {
+          this.conversationConfig = {
+            model: conversation.metadata.model || 'glm-4-flash',
+            thinkMode: conversation.metadata.think_mode || false,
+            webSearch: conversation.metadata.web_search || false,
+            temperature: conversation.metadata.temperature || 0.7,
+            maxTokens: conversation.metadata.max_tokens || 4096
+          }
+        }
 
         // 加载消息
         await this.fetchMessages(conversationId)
@@ -146,6 +228,59 @@ export const useChatStore = defineStore('chat', {
         return { success: false, error: error.message }
       } finally {
         this.loading = false
+      }
+    },
+
+    /**
+     * 更新对话配置
+     */
+    async updateConversationConfig(config) {
+      if (!this.currentConversation) {
+        return { success: false, error: '没有选中的会话' }
+      }
+
+      try {
+        // 合并配置
+        const newConfig = {
+          ...this.conversationConfig,
+          ...config
+        }
+
+        // 更新到数据库
+        const { error } = await supabase
+          .from('conversations')
+          .update({
+            metadata: {
+              model: newConfig.model,
+              think_mode: newConfig.thinkMode,
+              web_search: newConfig.webSearch,
+              temperature: newConfig.temperature,
+              max_tokens: newConfig.maxTokens
+            }
+          })
+          .eq('id', this.currentConversation.id)
+
+        if (error) throw error
+
+        // 更新本地状态
+        this.conversationConfig = newConfig
+
+        // 更新conversations列表中的数据
+        const index = this.conversations.findIndex(c => c.id === this.currentConversation.id)
+        if (index !== -1) {
+          this.conversations[index].metadata = {
+            model: newConfig.model,
+            think_mode: newConfig.thinkMode,
+            web_search: newConfig.webSearch,
+            temperature: newConfig.temperature,
+            max_tokens: newConfig.maxTokens
+          }
+        }
+
+        return { success: true }
+      } catch (error) {
+        console.error('更新会话配置失败:', error)
+        return { success: false, error: error.message }
       }
     },
 
@@ -174,7 +309,7 @@ export const useChatStore = defineStore('chat', {
     /**
      * 发送消息(使用 SSE 流式接收)
      */
-    async sendMessage(content) {
+    async sendMessage(content, uploadedFiles = []) {
       const userStore = useUserStore()
       if (!userStore.userId) {
         return { success: false, error: '用户未登录' }
@@ -191,14 +326,27 @@ export const useChatStore = defineStore('chat', {
           }
         }
 
-        // 1. 创建用户消息
+        // 1. 创建用户消息（包含附件信息）
+        const messageData = {
+          conversation_id: this.currentConversation.id,
+          role: 'user',
+          content: content
+        }
+
+        // 如果有附件，添加附件信息
+        if (uploadedFiles.length > 0) {
+          messageData.attachments = uploadedFiles.map(file => ({
+            file_id: file.id,
+            file_name: file.file_name,
+            file_type: file.file_type,
+            file_size: file.file_size,
+            storage_path: file.storage_path
+          }))
+        }
+
         const { data: userMessage, error: userMsgError } = await supabase
           .from('messages')
-          .insert({
-            conversation_id: this.currentConversation.id,
-            role: 'user',
-            content: content
-          })
+          .insert(messageData)
           .select()
           .single()
 
@@ -213,9 +361,11 @@ export const useChatStore = defineStore('chat', {
           id: tempMessageId,
           role: 'assistant',
           content: '',
+          thinking: '', // 思考过程
           conversation_id: this.currentConversation.id,
           created_at: new Date().toISOString()
         }
+        this.streamingThinking = '' // 重置思考过程
 
         this.sending = true
 
@@ -271,21 +421,43 @@ export const useChatStore = defineStore('chat', {
                 try {
                   const parsed = JSON.parse(data)
 
-                  if (parsed.type === 'chunk' && parsed.content) {
+                  // 处理思考过程
+                  if (parsed.type === 'thinking' && parsed.content) {
+                    this.streamingThinking += parsed.content
+                    if (this.streamingMessage) {
+                      this.streamingMessage.thinking = this.streamingThinking
+                    }
+                    // 如果还没添加到消息列表，先添加
+                    if (!this.messages.find(m => m.id === tempMessageId)) {
+                      this.messages.push(this.streamingMessage)
+                    }
+                  }
+                  // 处理普通内容
+                  else if (parsed.type === 'chunk' && parsed.content) {
                     // 第一次收到内容时,将流式消息添加到列表
-                    if (this.streamingMessage.content === '') {
+                    if (this.streamingMessage.content === '' && !this.messages.find(m => m.id === tempMessageId)) {
                       this.messages.push(this.streamingMessage)
                     }
                     // 更新流式消息内容
                     this.streamingMessage.content += parsed.content
                     this.sending = false
-                  } else if (parsed.type === 'done' && parsed.message) {
+                  }
+                  // 处理工具调用
+                  else if (parsed.type === 'tool_call' && parsed.toolCall) {
+                    console.log('工具调用:', parsed.toolCall)
+                    // 可以在这里添加工具调用的 UI 反馈
+                  }
+                  // 处理完成
+                  else if (parsed.type === 'done' && parsed.message) {
                     // 流式接收完成,用数据库中的消息替换临时消息
                     const index = this.messages.findIndex(m => m.id === tempMessageId)
                     if (index !== -1) {
                       this.messages[index] = parsed.message
                     }
+                    // 记录已处理的消息 ID，防止 Realtime 重复添加
+                    this.processedMessageIds.add(parsed.message.id)
                     this.streamingMessage = null
+                    this.streamingThinking = null
                     console.log('消息接收完成:', parsed.message)
                   } else if (parsed.type === 'error') {
                     throw new Error(parsed.error)
@@ -442,11 +614,14 @@ export const useChatStore = defineStore('chat', {
             // 新消息插入时添加到本地
             const newMessage = payload.new
             const exists = this.messages.some(m => m.id === newMessage.id)
-            if (!exists) {
+            // 检查是否已通过 SSE 处理过该消息
+            const alreadyProcessed = this.processedMessageIds.has(newMessage.id)
+
+            if (!exists && !alreadyProcessed) {
               console.log('添加新消息到本地列表')
               this.messages.push(newMessage)
             } else {
-              console.log('消息已存在,跳过')
+              console.log('消息已存在或已处理,跳过')
             }
           }
         )
@@ -521,6 +696,72 @@ export const useChatStore = defineStore('chat', {
     },
 
     /**
+     * 上传文件
+     */
+    async uploadFile(file) {
+      const userStore = useUserStore()
+      if (!userStore.userId) {
+        return { success: false, error: '用户未登录' }
+      }
+
+      try {
+        // 生成文件路径: userId/conversationId/timestamp-filename
+        const timestamp = Date.now()
+        const filePath = `${userStore.userId}/${this.currentConversation?.id || 'temp'}/${timestamp}-${file.name}`
+
+        // 添加到上传列表
+        this.uploadingFiles.push(file.name)
+        this.uploadProgress[file.name] = 0
+
+        // 上传到 Supabase Storage
+        const { data, error } = await supabase.storage
+          .from('chat-files')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          })
+
+        if (error) throw error
+
+        // 获取文件公开 URL（如果需要）
+        const { data: urlData } = supabase.storage
+          .from('chat-files')
+          .getPublicUrl(filePath)
+
+        // 保存文件记录到数据库
+        const { data: fileRecord, error: dbError } = await supabase
+          .from('files')
+          .insert({
+            user_id: userStore.userId,
+            conversation_id: this.currentConversation?.id,
+            file_name: file.name,
+            file_type: file.type,
+            file_size: file.size,
+            storage_path: filePath
+          })
+          .select()
+          .single()
+
+        if (dbError) throw dbError
+
+        // 从上传列表中移除
+        this.uploadingFiles = this.uploadingFiles.filter(f => f !== file.name)
+        delete this.uploadProgress[file.name]
+
+        return {
+          success: true,
+          file: fileRecord,
+          url: urlData.publicUrl
+        }
+      } catch (error) {
+        console.error('文件上传失败:', error)
+        this.uploadingFiles = this.uploadingFiles.filter(f => f !== file.name)
+        delete this.uploadProgress[file.name]
+        return { success: false, error: error.message }
+      }
+    },
+
+    /**
      * 清理状态
      */
     cleanup() {
@@ -532,6 +773,12 @@ export const useChatStore = defineStore('chat', {
       this.messages = []
       this.conversations = []
       this.error = null
+      this.streamingMessage = null
+      this.streamingThinking = null
+      this.uploadingFiles = []
+      this.uploadProgress = {}
+      // 清空已处理的消息 ID 集合
+      this.processedMessageIds.clear()
     }
   }
 })

@@ -159,6 +159,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useChatStore } from '@/stores/chat'
 
 const props = defineProps({
@@ -170,6 +171,7 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'create', 'delete'])
 
+const router = useRouter()
 const chatStore = useChatStore()
 const searchQuery = ref('')
 const showDeleteModal = ref(false)
@@ -195,15 +197,15 @@ const filteredConversations = computed(() => {
  * Create new conversation
  */
 const createNewConversation = () => {
-  chatStore.enterNewConversationMode()
+  router.push('/')
   emit('create')
 }
 
 /**
  * Select conversation
  */
-const selectConversation = async (conversationId) => {
-  await chatStore.selectConversation(conversationId)
+const selectConversation = (conversationId) => {
+  router.push(`/${conversationId}`)
   emit('select', conversationId)
 }
 
