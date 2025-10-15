@@ -36,7 +36,7 @@
       </transition>
 
       <!-- Chat Area -->
-      <div class="flex-1 flex flex-col min-w-0 min-h-0">
+      <div class="flex-1 flex flex-col min-w-0 min-h-0 relative">
         <!-- Welcome State (no conversation selected) -->
         <div v-if="!currentConversation" class="flex-1 flex flex-col items-center justify-center p-8">
           <div class="text-center max-w-2xl w-full">
@@ -130,7 +130,7 @@
         <!-- Chat Messages (conversation selected) -->
         <div v-else class="flex-1 flex flex-col min-h-0">
           <!-- Messages Container -->
-          <div ref="messagesContainer" class="flex-1 overflow-y-auto custom-scrollbar px-4 py-6 min-h-0">
+          <div ref="messagesContainer" @scroll="handleScroll" class="flex-1 overflow-y-auto custom-scrollbar px-4 py-6 min-h-0">
             <div class="max-w-4xl mx-auto">
               <!-- Loading State -->
               <div v-if="loading" class="flex justify-center py-8">
@@ -176,6 +176,17 @@
             </div>
           </div>
 
+          <!-- Scroll to Bottom Button -->
+          <div class="absolute bottom-44 right-1/2 translate-x-1/2 z-30 transition-opacity duration-300"
+            :class="[showScrollToBottomButton ? 'opacity-100' : 'opacity-0 pointer-events-none']">
+            <button @click="scrollToBottom(true)"
+              class="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-gray-700 shadow-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+              </svg>
+            </button>
+          </div>
+
           <!-- Chat Input -->
           <ChatInputEnhanced :sending="sending" :can-stop="canStop" @send="handleSendMessage"
             @stop="handleStopGeneration" />
@@ -203,6 +214,7 @@ const chatStore = useChatStore()
 
 const showSidebar = ref(window.innerWidth >= 1024) // Show on desktop by default
 const messagesContainer = ref(null)
+const showScrollToBottomButton = ref(false)
 
 const currentConversation = computed(() => chatStore.currentConversation)
 const messages = computed(() => chatStore.messages)
@@ -243,10 +255,14 @@ onMounted(async () => {
 
   // Handle window resize
   window.addEventListener('resize', handleResize)
+  // Add scroll listener
+  messagesContainer.value?.addEventListener('scroll', handleScroll)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  // Remove scroll listener
+  messagesContainer.value?.removeEventListener('scroll', handleScroll)
   chatStore.cleanup()
 })
 
@@ -316,6 +332,19 @@ const handleStopGeneration = () => {
 }
 
 /**
+ * Handle scroll event on messages container
+ */
+const handleScroll = () => {
+  const container = messagesContainer.value
+  if (!container) return
+
+  const threshold = 100 // Show button if scrolled up more than 100px
+  const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+
+  showScrollToBottomButton.value = !atBottom
+}
+
+/**
  * Handle send message
  */
 const handleSendMessage = async (content, uploadedFiles = []) => {
@@ -351,10 +380,13 @@ const handleSendMessage = async (content, uploadedFiles = []) => {
 /**
  * Scroll to bottom of messages
  */
-const scrollToBottom = () => {
+const scrollToBottom = (smooth = false) => {
   nextTick(() => {
     if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
+      messagesContainer.value.scrollTo({
+        top: messagesContainer.value.scrollHeight,
+        behavior: smooth ? 'smooth' : 'auto'
+      })
     }
   })
 }
@@ -364,8 +396,18 @@ const scrollToBottom = () => {
  */
 watch(
   () => messages.value.length,
-  () => {
-    scrollToBottom()
+  (newLength, oldLength) => {
+    if (newLength > oldLength) {
+      // Only auto-scroll if user is already near the bottom
+      const container = messagesContainer.value
+      if (container) {
+        const threshold = 150
+        const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+        if (atBottom) {
+          scrollToBottom()
+        }
+      }
+    }
   }
 )
 
