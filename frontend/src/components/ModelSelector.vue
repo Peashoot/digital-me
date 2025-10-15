@@ -1,16 +1,8 @@
 <template>
   <div class="model-selector">
-    <n-select
-      v-model:value="selectedModel"
-      :options="groupedModelOptions"
-      filterable
-      :placeholder="t('chat.modelSelector.placeholder')"
-      @update:value="handleModelChange"
-      :consistent-menu-width="false"
-      size="medium"
-      :render-label="renderLabel"
-      style="min-width: 220px"
-    >
+    <n-select v-model:value="selectedModel" :options="groupedModelOptions" filterable
+      :placeholder="t('chat.modelSelector.placeholder')" @update:value="handleModelChange"
+      :consistent-menu-width="false" size="medium" :render-label="renderLabel" style="min-width: 220px">
       <template #header>
         <div class="px-3 py-2 text-xs" style="color: var(--n-text-color-3)">
           {{ t('chat.modelSelector.totalModels', { count: totalModelsCount }) }}
