@@ -101,6 +101,7 @@ export default {
       newlineHint: 'Shift+Enter 换行',
       thinkModeHint: '深度思考仅支持 Claude 模型',
       fileSizeLimit: '文件 "{name}" 超过 50MB 限制',
+      fileTypeNotAllowed: '不支持的文件类型: {type}',
       generationStopped: '生成已中断'
     },
 

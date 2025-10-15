@@ -38,7 +38,8 @@ export const useChatStore = defineStore('chat', {
     currentConversation: null,
     messages: [],
     loading: false,
-    sending: false,
+    sending: false, // Represents the entire duration of AI response, used to lock input
+    isTyping: false, // Represents the "typing indicator" state, before first chunk arrives
     error: null,
     realtimeChannel: null,
     streamingMessage: null, // 存储正在流式接收的消息
@@ -71,6 +72,7 @@ export const useChatStore = defineStore('chat', {
     conversationList: (state) => state.conversations,
     isLoading: (state) => state.loading,
     isSending: (state) => state.sending,
+    isTyping: (state) => state.isTyping,
     currentModel: (state) => state.conversationConfig.model,
     isThinkModeEnabled: (state) => state.conversationConfig.thinkMode,
     isWebSearchEnabled: (state) => state.conversationConfig.webSearch
@@ -159,7 +161,7 @@ export const useChatStore = defineStore('chat', {
         // 如果获取失败，使用默认模型列表
         this.availableModels = [
           { name: 'glm-4-flash', display_name: 'GLM-4-Flash', provider: 'zhipu', sort_order: 1 },
-          { name: 'claude-3-5-sonnet-20241022', display_name: 'Claude 3.5 Sonnet', provider: 'anthropic', sort_order: 2 },
+          { name: 'claude-3-5-sonnet-20240620', display_name: 'Claude 3.5 Sonnet', provider: 'anthropic', sort_order: 2 },
           { name: 'moonshot-v1-8k', display_name: 'Kimi (8K)', provider: 'moonshot', sort_order: 3 }
         ]
         // 设置默认模型
@@ -308,7 +310,9 @@ export const useChatStore = defineStore('chat', {
      */
     async updateConversationConfig(config) {
       if (!this.currentConversation) {
-        return { success: false, error: '没有选中的会话' }
+        // When no conversation is active, just update local state
+        this.conversationConfig = { ...this.conversationConfig, ...config }
+        return { success: true }
       }
 
       try {
@@ -387,17 +391,16 @@ export const useChatStore = defineStore('chat', {
         return { success: false, error: '用户未登录' }
       }
 
-      // 防止重复提交
       if (this.sending) {
         console.log('正在发送中，忽略重复请求')
         return { success: false, error: '正在发送中' }
       }
 
       this.error = null
-      // this.sending is now set after the user message is pushed.
+      this.sending = true
+      this.isTyping = true // Start typing indicator
 
       try {
-        // 如果没有当前会话,先创建一个(使用消息前15个字符作为标题)
         if (!this.currentConversation) {
           const title = content.slice(0, 15)
           const result = await this.createConversation(title)
@@ -406,14 +409,12 @@ export const useChatStore = defineStore('chat', {
           }
         }
 
-        // 1. 创建用户消息（包含附件信息）
         const messageData = {
           conversation_id: this.currentConversation.id,
           role: 'user',
           content: content
         }
 
-        // 如果有附件，添加附件信息
         if (uploadedFiles.length > 0) {
           messageData.attachments = uploadedFiles.map(file => ({
             file_id: file.id,
@@ -432,33 +433,23 @@ export const useChatStore = defineStore('chat', {
 
         if (userMsgError) throw userMsgError
 
-        // 添加到本地消息列表
         this.messages.push(userMessage)
-        // 记录用户消息 ID，防止 Realtime 重复添加
         this.processedMessageIds.add(userMessage.id)
 
-        // 用户消息已推入，现在显示“发送中”指示器
-        this.sending = true
-
-        // 2. 创建临时的流式消息对象(不立即添加到列表)
         const tempMessageId = `temp-${Date.now()}`
         this.streamingMessage = {
           id: tempMessageId,
           role: 'assistant',
           content: '',
-          thinking: '', // 思考过程
+          thinking: '',
           conversation_id: this.currentConversation.id,
           created_at: new Date().toISOString()
         }
-        this.streamingThinking = '' // 重置思考过程
+        this.streamingThinking = ''
 
-        // The second this.sending = true was redundant and has been removed.
-
-        // 3. 调用 Edge Function 使用 SSE 流式接收
         console.log('开始 SSE 连接...')
         const { data: { session } } = await supabase.auth.getSession()
 
-        // 创建 AbortController 用于中断请求
         this.abortController = new AbortController()
 
         const response = await fetch(`${supabase.supabaseUrl}/functions/v1/chat`, {
@@ -471,6 +462,7 @@ export const useChatStore = defineStore('chat', {
           body: JSON.stringify({
             conversation_id: this.currentConversation.id,
             message: content,
+            attachments: uploadedFiles,
             config: {
               model: this.conversationConfig.model,
               think_mode: this.conversationConfig.thinkMode,
@@ -486,7 +478,6 @@ export const useChatStore = defineStore('chat', {
           throw new Error(`HTTP error! status: ${response.status}`)
         }
 
-        // 4. 处理 SSE 流
         const reader = response.body?.getReader()
         const decoder = new TextDecoder()
 
@@ -513,64 +504,40 @@ export const useChatStore = defineStore('chat', {
                 try {
                   const parsed = JSON.parse(data)
 
-                  // 处理思考过程
                   if (parsed.type === 'thinking' && parsed.content) {
+                    if (this.isTyping) this.isTyping = false // Stop typing indicator
                     this.streamingThinking += parsed.content
                     if (this.streamingMessage) {
                       this.streamingMessage.thinking = this.streamingThinking
                     }
-                    // 如果还没添加到消息列表，先添加
                     if (!this.messages.find(m => m.id === tempMessageId)) {
                       this.messages.push(this.streamingMessage)
                     }
-                  }
-                  // 处理普通内容
-                  else if (parsed.type === 'chunk' && parsed.content) {
-                    // 一旦收到任何内容块，就停止显示“发送中”指示器
-                    if (this.sending) {
-                      this.sending = false
-                    }
-                    // 第一次收到内容时,将流式消息添加到列表
+                  } else if (parsed.type === 'chunk' && parsed.content) {
+                    if (this.isTyping) this.isTyping = false // Stop typing indicator
                     if (this.streamingMessage.content === '' && !this.messages.find(m => m.id === tempMessageId)) {
                       this.messages.push(this.streamingMessage)
                     }
-                    // 更新流式消息内容
                     this.streamingMessage.content += parsed.content
-                  }
-                  // 处理工具调用
-                  else if (parsed.type === 'tool_call' && parsed.toolCall) {
+                  } else if (parsed.type === 'tool_call' && parsed.toolCall) {
                     console.log('工具调用:', parsed.toolCall)
-                    // 可以在这里添加工具调用的 UI 反馈
-                  }
-                  // 处理完成
-                  else if (parsed.type === 'done' && parsed.message) {
-                    console.log('[SSE] 收到 done 事件, message ID:', parsed.message.id)
-
-                    // 先记录已处理的消息 ID，防止 Realtime 重复添加（必须在所有操作之前）
+                  } else if (parsed.type === 'done' && parsed.message) {
                     this.processedMessageIds.add(parsed.message.id)
-                    console.log('[SSE] 已记录消息 ID 到 processedMessageIds')
 
-                    // 流式接收完成,处理消息的最终状态
-                    // 1. 查找并移除临时消息
                     const index = this.messages.findIndex(m => m.id === tempMessageId)
                     if (index !== -1) {
                       this.messages.splice(index, 1)
-                      console.log('[SSE] 已移除临时消息')
                     }
 
-                    // 2. 检查真实消息是否已存在（可能由 Realtime 添加）
                     const exists = this.messages.some(m => m.id === parsed.message.id)
                     if (!exists) {
-                      // 3. 如果不存在，则添加真实消息
                       this.messages.push(parsed.message)
-                      console.log('[SSE] 真实消息不存在，添加它')
-                    } else {
-                      console.log('[SSE] 真实消息已由 Realtime 添加，跳过')
                     }
 
                     this.streamingMessage = null
                     this.streamingThinking = null
                     this.sending = false
+                    this.isTyping = false
                     console.log('[SSE] 消息接收完成')
                   } else if (parsed.type === 'error') {
                     throw new Error(parsed.error)
@@ -583,15 +550,7 @@ export const useChatStore = defineStore('chat', {
               }
             }
           }
-        } catch (error) {
-          // 如果是 AbortError，直接重新抛出让外层处理
-          if (error.name === 'AbortError') {
-            throw error
-          }
-          // 其他错误也重新抛出
-          throw error
         } finally {
-          // 确保 reader 被正确关闭
           try {
             reader.cancel()
           } catch (e) {
@@ -599,21 +558,19 @@ export const useChatStore = defineStore('chat', {
           }
         }
 
-        // 5. 更新会话的 updated_at
         await supabase
           .from('conversations')
           .update({ updated_at: new Date().toISOString() })
           .eq('id', this.currentConversation.id)
 
-        // 刷新会话列表顺序
         await this.fetchConversations()
 
         return { success: true, message: userMessage }
       } catch (error) {
         console.error('发送消息失败:', error)
         this.sending = false
+        this.isTyping = false
 
-        // 检查是否是用户主动中断
         if (error.name === 'AbortError') {
           console.log('请求已被用户中断')
           return { success: true, aborted: true }
@@ -621,7 +578,6 @@ export const useChatStore = defineStore('chat', {
 
         this.error = error.message
 
-        // 清理临时消息
         if (this.streamingMessage) {
           const index = this.messages.findIndex(m => m.id === this.streamingMessage.id)
           if (index !== -1) {
@@ -642,32 +598,25 @@ export const useChatStore = defineStore('chat', {
     async stopGeneration() {
       console.log('停止消息生成')
 
-      // 中断当前请求
       if (this.abortController) {
         this.abortController.abort()
         this.abortController = null
       }
 
-      // 如果有正在流式接收的消息，保存当前内容
       if (this.streamingMessage && this.streamingMessage.content) {
         console.log('保存已生成的内容:', this.streamingMessage.content.length, '字符')
-
-        // 保存临时消息的 ID，用于后续过滤实时订阅
         const tempId = this.streamingMessage.id
-
-        // 保存到数据库
         await this.savePartialMessage(this.streamingMessage.content, tempId)
       } else if (this.streamingMessage) {
-        // 如果还没有收到任何内容，直接移除临时消息
         const index = this.messages.findIndex(m => m.id === this.streamingMessage.id)
         if (index !== -1) {
           this.messages.splice(index, 1)
         }
       }
 
-      // 清理流式消息
       this.streamingMessage = null
       this.sending = false
+      this.isTyping = false
     },
 
     /**
@@ -687,13 +636,11 @@ export const useChatStore = defineStore('chat', {
 
         if (error) throw error
 
-        // 更新本地消息列表 - 用数据库消息替换临时消息
         const tempMessageIndex = this.messages.findIndex(m => m.id === tempId)
         if (tempMessageIndex !== -1) {
           this.messages[tempMessageIndex] = data
         }
 
-        // 记录消息 ID，防止 Realtime 重复添加
         this.processedMessageIds.add(data.id)
 
         console.log('部分消息已保存:', data)
@@ -708,14 +655,12 @@ export const useChatStore = defineStore('chat', {
      * 订阅消息实时更新
      */
     subscribeToMessages(conversationId) {
-      // 取消之前的订阅
       if (this.realtimeChannel) {
         supabase.removeChannel(this.realtimeChannel)
       }
 
       console.log('订阅会话消息:', conversationId)
 
-      // 创建新订阅
       this.realtimeChannel = supabase
         .channel(`messages:${conversationId}`)
         .on(
@@ -728,15 +673,12 @@ export const useChatStore = defineStore('chat', {
           },
           (payload) => {
             console.log('[Realtime] 收到新消息事件, message ID:', payload.new.id)
-            // 新消息插入时添加到本地
             const newMessage = payload.new
             const exists = this.messages.some(m => m.id === newMessage.id)
             console.log('[Realtime] 消息是否已存在:', exists)
 
-            // 检查是否已通过 SSE 处理过该消息
             const alreadyProcessed = this.processedMessageIds.has(newMessage.id)
             console.log('[Realtime] 消息是否已被 SSE 处理:', alreadyProcessed)
-            console.log('[Realtime] processedMessageIds 大小:', this.processedMessageIds.size)
 
             if (!exists && !alreadyProcessed) {
               console.log('[Realtime] 添加新消息到本地列表')
@@ -763,10 +705,8 @@ export const useChatStore = defineStore('chat', {
 
         if (error) throw error
 
-        // 从本地列表移除
         this.conversations = this.conversations.filter(c => c.id !== conversationId)
 
-        // 如果删除的是当前会话，清空当前会话
         if (this.currentConversation?.id === conversationId) {
           this.currentConversation = null
           this.messages = []
@@ -798,7 +738,6 @@ export const useChatStore = defineStore('chat', {
 
         if (error) throw error
 
-        // 更新本地会话
         const index = this.conversations.findIndex(c => c.id === conversationId)
         if (index !== -1) {
           this.conversations[index] = data
@@ -826,15 +765,12 @@ export const useChatStore = defineStore('chat', {
       }
 
       try {
-        // 生成文件路径: userId/conversationId/timestamp-filename
         const timestamp = Date.now()
         const filePath = `${userStore.userId}/${this.currentConversation?.id || 'temp'}/${timestamp}-${file.name}`
 
-        // 添加到上传列表
         this.uploadingFiles.push(file.name)
         this.uploadProgress[file.name] = 0
 
-        // 上传到 Supabase Storage
         const { data, error } = await supabase.storage
           .from('chat-files')
           .upload(filePath, file, {
@@ -844,12 +780,10 @@ export const useChatStore = defineStore('chat', {
 
         if (error) throw error
 
-        // 获取文件公开 URL（如果需要）
         const { data: urlData } = supabase.storage
           .from('chat-files')
           .getPublicUrl(filePath)
 
-        // 保存文件记录到数据库
         const { data: fileRecord, error: dbError } = await supabase
           .from('files')
           .insert({
@@ -865,7 +799,6 @@ export const useChatStore = defineStore('chat', {
 
         if (dbError) throw dbError
 
-        // 从上传列表中移除
         this.uploadingFiles = this.uploadingFiles.filter(f => f !== file.name)
         delete this.uploadProgress[file.name]
 
@@ -888,7 +821,6 @@ export const useChatStore = defineStore('chat', {
     cleanup() {
       if (this.realtimeChannel) {
         supabase.removeChannel(this.realtimeChannel)
-        this.realtimeChannel = null
       }
       this.currentConversation = null
       this.messages = []
@@ -898,7 +830,6 @@ export const useChatStore = defineStore('chat', {
       this.streamingThinking = null
       this.uploadingFiles = []
       this.uploadProgress = {}
-      // 清空已处理的消息 ID 集合
       this.processedMessageIds.clear()
     }
   }

@@ -5,7 +5,7 @@ import { WebSearchTool } from './web_search.ts'
 import type { Message } from './base.ts'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': '*', 
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -20,7 +20,7 @@ serve(async (req) => {
     const {
       conversation_id,
       message,
-      attachments = [],
+      attachments = [], // attachments is an array of file objects
       config: requestConfig
     } = await req.json()
 
@@ -35,6 +35,47 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // --- Start: File Processing Logic ---
+    let fullUserMessage = message
+    if (attachments && attachments.length > 0) {
+      console.log(`[File Processing] Found ${attachments.length} attachments. `)
+      const fileContents = []
+
+      for (const attachment of attachments) {
+        if (!attachment.storage_path) continue
+
+        try {
+          const { data: fileData, error: fileError } = await supabase.storage
+            .from('chat-files')
+            .download(attachment.storage_path)
+
+          if (fileError) {
+            console.error(`[File Processing] Error downloading file ${attachment.file_name}:`, fileError.message)
+            // Optionally skip this file or throw an error
+            continue
+          }
+
+          const textContent = await fileData.text()
+          const formattedContent = `--- Start of file: ${attachment.file_name} ---
+${textContent}
+--- End of file: ${attachment.file_name} ---
+`
+          fileContents.push(formattedContent)
+          console.log(`[File Processing] Successfully processed file: ${attachment.file_name}`)
+
+        } catch (e) {
+          console.error(`[File Processing] Exception while processing file ${attachment.file_name}:`, e.message)
+        }
+      }
+
+      if (fileContents.length > 0) {
+        const allFilesString = fileContents.join('\n\n')
+        // Prepend file context to the user's message
+        fullUserMessage = `Use the content of the following file(s) as context to answer the user's question.\n\n${allFilesString}\n\nUser's question: "${message}"`
+      }
+    }
+    // --- End: File Processing Logic ---
 
     // Get conversation configuration from database (with user_id)
     const { data: conversation, error: convError } = await supabase
@@ -67,7 +108,6 @@ serve(async (req) => {
         .eq('user_id', conversation.user_id)
         .single()
 
-      // If user has an active persona with a system prompt, use it
       if (!personaError && personaData?.is_active && personaData?.system_prompt) {
         systemPrompt = personaData.system_prompt
         console.log('[Persona] Using user persona system prompt for user:', conversation.user_id)
@@ -92,7 +132,6 @@ serve(async (req) => {
       { role: 'system', content: systemPrompt }
     ]
 
-    // Add historical messages
     if (messages && messages.length > 0) {
       conversationMessages = conversationMessages.concat(
         messages.map((msg: any) => ({
@@ -103,10 +142,10 @@ serve(async (req) => {
       )
     }
 
-    // Add current user message
+    // Add current user message (with file content if any)
     conversationMessages.push({
       role: 'user',
-      content: message
+      content: fullUserMessage
     })
 
     // Web search if enabled
@@ -117,7 +156,6 @@ serve(async (req) => {
         try {
           const webSearchTool = new WebSearchTool(tavilyApiKey)
 
-          // 判断是否需要搜索
           if (webSearchTool.shouldSearch(message)) {
             console.log('Performing web search for:', message)
             searchResults = await webSearchTool.search(message, {
@@ -126,7 +164,6 @@ serve(async (req) => {
               includeAnswer: true
             })
 
-            // 将搜索结果添加到消息上下文
             const searchContext = webSearchTool.formatResults(searchResults)
             conversationMessages.push({
               role: 'system',
@@ -135,7 +172,6 @@ serve(async (req) => {
           }
         } catch (error) {
           console.error('Web search error:', error)
-          // 搜索失败不影响主流程，继续处理
         }
       }
     }
@@ -148,7 +184,6 @@ serve(async (req) => {
       throw new Error(`API key not configured for model: ${modelName} (${apiKeyEnvName})`)
     }
 
-    // Get default config and merge with user config
     const defaultConfig = ModelFactory.getDefaultConfig(modelName)
     const modelConfig = {
       model: modelName,
@@ -160,10 +195,8 @@ serve(async (req) => {
       ...defaultConfig
     }
 
-    // Create model adapter
     const adapter = ModelFactory.createAdapter(modelName, apiKey, modelConfig)
 
-    // Create a ReadableStream to handle SSE
     const stream = new ReadableStream({
       async start(controller) {
         let fullContent = ''
@@ -174,7 +207,9 @@ serve(async (req) => {
         const sendEvent = (data: any) => {
           if (!isAborted) {
             try {
-              const event = `data: ${JSON.stringify(data)}\n\n`
+              const event = `data: ${JSON.stringify(data)}
+
+`
               controller.enqueue(new TextEncoder().encode(event))
             } catch (e) {
               isAborted = true
@@ -183,36 +218,24 @@ serve(async (req) => {
         }
 
         try {
-          // Stream generate
           const response = await adapter.streamGenerate(
             conversationMessages,
             (chunk) => {
               if (isAborted) return
 
-              // Handle different chunk types
               if (chunk.type === 'thinking' && chunk.content) {
                 thinkingContent += chunk.content
-                sendEvent({
-                  type: 'thinking',
-                  content: chunk.content
-                })
+                sendEvent({ type: 'thinking', content: chunk.content })
               } else if (chunk.type === 'content' && chunk.content) {
                 fullContent += chunk.content
-                sendEvent({
-                  type: 'chunk',
-                  content: chunk.content
-                })
+                sendEvent({ type: 'chunk', content: chunk.content })
               } else if (chunk.type === 'tool_call' && chunk.toolCall) {
                 toolCalls.push(chunk.toolCall)
-                sendEvent({
-                  type: 'tool_call',
-                  toolCall: chunk.toolCall
-                })
+                sendEvent({ type: 'tool_call', toolCall: chunk.toolCall })
               }
             }
           )
 
-          // Save the complete message to database
           if (!isAborted) {
             const messageData: any = {
               conversation_id: conversation_id,
@@ -220,12 +243,10 @@ serve(async (req) => {
               content: response.content || fullContent
             }
 
-            // Add thinking if available
             if (response.thinking || thinkingContent) {
               messageData.thinking = response.thinking || thinkingContent
             }
 
-            // Add tool calls if any
             if (toolCalls.length > 0 || searchResults) {
               messageData.tool_calls = []
 
@@ -233,10 +254,7 @@ serve(async (req) => {
                 messageData.tool_calls.push({
                   tool: 'web_search',
                   query: searchResults.query,
-                  results: searchResults.results.map((r: any) => ({
-                    title: r.title,
-                    url: r.url
-                  }))
+                  results: searchResults.results.map((r: any) => ({ title: r.title, url: r.url }))
                 })
               }
 
@@ -253,12 +271,8 @@ serve(async (req) => {
 
             if (saveError) {
               console.error('Failed to save message:', saveError)
-              sendEvent({
-                type: 'error',
-                error: 'Failed to save message'
-              })
+              sendEvent({ type: 'error', error: 'Failed to save message' })
             } else {
-              // Save usage stats if available
               if (response.usage) {
                 await supabase
                   .from('usage_stats')
@@ -273,11 +287,7 @@ serve(async (req) => {
                   })
               }
 
-              // Send final event
-              sendEvent({
-                type: 'done',
-                message: savedMessage
-              })
+              sendEvent({ type: 'done', message: savedMessage })
             }
           }
 
@@ -285,10 +295,7 @@ serve(async (req) => {
         } catch (error) {
           console.error('Stream error:', error)
           if (!isAborted) {
-            sendEvent({
-              type: 'error',
-              error: error.message
-            })
+            sendEvent({ type: 'error', error: error.message })
           }
           controller.close()
         }
@@ -298,7 +305,6 @@ serve(async (req) => {
       }
     })
 
-    // Return SSE response
     return new Response(stream, {
       headers: {
         ...corsHeaders,

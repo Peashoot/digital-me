@@ -122,7 +122,7 @@
 
           <!-- Chat Input at bottom -->
           <div class="w-full max-w-4xl">
-            <ChatInputEnhanced :sending="sending" :can-stop="canStop" @send="handleSendMessage"
+            <ChatInputEnhanced :sending="sending" @send="handleSendMessage"
               @stop="handleStopGeneration" />
           </div>
         </div>
@@ -155,7 +155,7 @@
               </div>
 
               <!-- Typing Indicator -->
-              <div v-if="sending" class="flex gap-3 mb-4">
+              <div v-show="isTyping" class="flex gap-3 mb-4">
                 <div
                   class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
                   <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor"
@@ -188,7 +188,7 @@
           </div>
 
           <!-- Chat Input -->
-          <ChatInputEnhanced :sending="sending" :can-stop="canStop" @send="handleSendMessage"
+          <ChatInputEnhanced :sending="sending" @send="handleSendMessage"
             @stop="handleStopGeneration" />
         </div>
       </div>
@@ -220,7 +220,8 @@ const currentConversation = computed(() => chatStore.currentConversation)
 const messages = computed(() => chatStore.messages)
 const loading = computed(() => chatStore.loading)
 const sending = computed(() => chatStore.sending)
-const canStop = computed(() => chatStore.sending && chatStore.streamingMessage !== null)
+const isTyping = computed(() => chatStore.isTyping)
+
 
 const currentConversationTitle = computed(() => {
   return currentConversation.value?.title || 'Digital Me'

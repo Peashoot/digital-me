@@ -101,6 +101,7 @@ export default {
       newlineHint: 'Shift+Enter for new line',
       thinkModeHint: 'Deep Think only supports Claude models',
       fileSizeLimit: 'File "{name}" exceeds 50MB limit',
+      fileTypeNotAllowed: 'Unsupported file type: {type}',
       generationStopped: 'Generation stopped'
     },
 

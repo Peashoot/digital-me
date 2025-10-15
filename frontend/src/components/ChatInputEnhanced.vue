@@ -50,7 +50,7 @@
           </button>
 
           <!-- File Upload Button -->
-          <input ref="fileInputRef" type="file" class="hidden" multiple accept=".pdf,.txt,.doc,.docx,.md,image/*"
+          <input ref="fileInputRef" type="file" class="hidden" multiple :accept="allowedFileTypes.acceptString"
             @change="handleFileSelect" :disabled="disabled" />
           <button @click="$refs.fileInputRef.click()" :disabled="disabled"
             :class="{ 'opacity-50 cursor-not-allowed': disabled }"
@@ -127,7 +127,7 @@
         <div class="flex-1 relative">
           <!-- Textarea -->
           <textarea ref="textareaRef" v-model="inputText" @keydown="handleKeyDown" @input="adjustHeight"
-            :placeholder="placeholder" :disabled="disabled" :maxlength="maxLength"
+            :placeholder="placeholderText" :disabled="disabled" :maxlength="maxLength"
             class="w-full px-4 py-3 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base overflow-hidden"
             :class="{
               'pr-16': showCharCount && maxLength
@@ -192,10 +192,12 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useMessage } from 'naive-ui'
 import { useChatStore } from '@/stores/chat'
 import ModelSelector from './ModelSelector.vue'
 
 const { t } = useI18n()
+const messageApi = useMessage()
 
 const props = defineProps({
   placeholder: {
@@ -210,13 +212,9 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  canStop: {
-    type: Boolean,
-    default: false
-  },
   maxLength: {
     type: Number,
-    default: 2000
+    default: 8000
   },
   showCharCount: {
     type: Boolean,
@@ -245,34 +243,48 @@ const showConfig = ref(true)
 const isMobile = ref(window.innerWidth < 768)
 const attachedFiles = ref([])
 
+// --- File Handling ---
+const allowedFileTypes = {
+  extensions: [
+    '.txt', '.md', '.json', '.csv', '.xml', '.html', '.js', '.ts', '.py', '.java',
+    '.css', '.go', '.c', '.cpp', '.rs', '.sh', '.rb'
+  ],
+  acceptString: [
+    'text/plain', 'text/markdown', 'application/json', 'text/csv', 'application/xml', 'text/html',
+    'application/javascript', 'text/javascript', 'application/x-typescript', 'text/x-python',
+    'text/x-java-source', 'text/css', 'text/x-go', 'text/x-c', 'text/x-c++', 'text/rust',
+    'application/x-sh', 'application/x-ruby'
+  ].join(',')
+}
+
 // Local config state
 const localConfig = ref({
   thinkMode: chatStore.isThinkModeEnabled || false,
   webSearch: chatStore.isWebSearchEnabled || false
 })
 
-// Model options (no longer needed, using ModelSelector component)
-// const modelOptions = computed(() => {
-//   return chatStore.availableModels.map(model => ({
-//     label: model.display_name,
-//     value: model.name
-//   }))
-// })
+const placeholderText = computed(() => {
+  return props.placeholder || t('chat.input.placeholder')
+})
 
 // Check if current model is Claude
 const isClaudeModel = computed(() => {
-  return chatStore.currentModel.toLowerCase().includes('claude')
+  const modelName = chatStore.currentModel || ''
+  return modelName.toLowerCase().includes('claude')
 })
 
 // Can send message
 const canSend = computed(() => {
   return (
-    inputText.value.trim().length > 0 &&
+    (inputText.value.trim().length > 0 || attachedFiles.value.length > 0) &&
     !props.disabled &&
     !props.sending &&
     (!props.maxLength || inputText.value.length <= props.maxLength)
   )
 })
+
+// Can stop generation (computed directly from store)
+const canStop = computed(() => chatStore.sending && chatStore.streamingMessage !== null)
 
 /**
  * Toggle config visibility
@@ -350,28 +362,37 @@ const handleKeyDown = (event) => {
 }
 
 /**
- * Handle file selection
+ * Handle file selection and validation
  */
 const handleFileSelect = (event) => {
   const files = Array.from(event.target.files || [])
+  const validFiles = []
 
-  // Validate and add files
   files.forEach(file => {
-    // Check file size (max 50MB)
+    // 1. Check file size (max 50MB)
     if (file.size > 50 * 1024 * 1024) {
-      alert(t('chat.input.fileSizeLimit', { name: file.name }))
+      messageApi.error(t('chat.input.fileSizeLimit', { name: file.name }))
       return
     }
 
-    // Check if already attached
+    // 2. Check file type
+    const fileExtension = '.' + file.name.split('.').pop().toLowerCase()
+    if (!allowedFileTypes.extensions.includes(fileExtension)) {
+      messageApi.error(t('chat.input.fileTypeNotAllowed', { type: fileExtension }))
+      return
+    }
+
+    // 3. Check if already attached
     if (attachedFiles.value.some(f => f.name === file.name && f.size === file.size)) {
       return
     }
 
-    attachedFiles.value.push(file)
+    validFiles.push(file)
   })
 
-  // Clear input
+  attachedFiles.value.push(...validFiles)
+
+  // Clear input to allow selecting the same file again
   if (fileInputRef.value) {
     fileInputRef.value.value = ''
   }
@@ -406,15 +427,26 @@ const handleSend = async () => {
   // If there are attached files, upload them first
   if (attachedFiles.value.length > 0) {
     const uploadedFiles = []
+    // Show loading indicators for files
+    // This part can be enhanced with progress tracking in the store
 
     for (const file of attachedFiles.value) {
       const result = await chatStore.uploadFile(file)
       if (result.success) {
         uploadedFiles.push(result.file)
+      } else {
+        messageApi.error(`文件上传失败: ${file.name}`)
       }
     }
 
-    emit('send', message, uploadedFiles)
+    // Only send message if all files uploaded successfully
+    if (uploadedFiles.length === attachedFiles.value.length) {
+      emit('send', message, uploadedFiles)
+    } else {
+      // Handle partial upload failure if needed
+      console.error('部分文件上传失败')
+    }
+
   } else {
     emit('send', message)
   }
@@ -454,7 +486,8 @@ watch(() => chatStore.isWebSearchEnabled, (value) => {
 
 // Watch model change to disable think mode
 watch(() => chatStore.currentModel, (newModel) => {
-  if (!newModel.toLowerCase().includes('claude')) {
+  const modelName = newModel || ''
+  if (!modelName.toLowerCase().includes('claude')) {
     localConfig.value.thinkMode = false
     handleConfigChange()
   }
