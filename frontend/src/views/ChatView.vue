@@ -8,6 +8,9 @@
       @menu-click="toggleSidebar"
     >
       <template #actions>
+        <!-- Language Selector -->
+        <LanguageSelector class="mr-2" />
+
         <!-- New Chat Button (desktop) -->
         <button
           @click="createNewChat"
@@ -16,7 +19,7 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
           </svg>
-          新对话
+          {{ t('chat.conversationList.newChat') }}
         </button>
       </template>
     </MobileHeader>
@@ -65,10 +68,10 @@
               </svg>
             </div>
             <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-              数字分身，另一个我
+              {{ t('chat.welcome.title') }}
             </h2>
             <p class="text-gray-600 dark:text-gray-400 mb-8">
-              AI改变世界
+              {{ t('chat.welcome.subtitle') }}
             </p>
 
             <!-- Quick Action Cards -->
@@ -79,8 +82,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">深度思考</h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400">分析研究和分析问题</p>
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">{{ t('chat.welcome.quickActions.deepThink.title') }}</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('chat.welcome.quickActions.deepThink.description') }}</p>
               </div>
 
               <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center">
@@ -89,8 +92,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                   </svg>
                 </div>
-                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">代码</h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400">编写和调试代码</p>
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">{{ t('chat.welcome.quickActions.code.title') }}</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('chat.welcome.quickActions.code.description') }}</p>
               </div>
 
               <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center">
@@ -99,8 +102,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                   </svg>
                 </div>
-                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">翻译</h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400">多语言翻译和优化</p>
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">{{ t('chat.welcome.quickActions.translation.title') }}</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('chat.welcome.quickActions.translation.description') }}</p>
               </div>
 
               <div class="p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-200 dark:border-gray-700 flex flex-col items-center text-center">
@@ -109,8 +112,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                   </svg>
                 </div>
-                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">文档</h3>
-                <p class="text-xs text-gray-500 dark:text-gray-400">创建和编辑文档</p>
+                <h3 class="font-semibold text-gray-900 dark:text-white mb-1">{{ t('chat.welcome.quickActions.document.title') }}</h3>
+                <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('chat.welcome.quickActions.document.description') }}</p>
               </div>
             </div>
           </div>
@@ -195,12 +198,15 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
 import MobileHeader from '@/components/MobileHeader.vue'
 import ConversationList from '@/components/ConversationList.vue'
 import ChatMessage from '@/components/ChatMessage.vue'
 import ChatInputEnhanced from '@/components/ChatInputEnhanced.vue'
+import LanguageSelector from '@/components/LanguageSelector.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const chatStore = useChatStore()

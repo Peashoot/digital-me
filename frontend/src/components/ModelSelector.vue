@@ -4,7 +4,7 @@
       v-model:value="selectedModel"
       :options="groupedModelOptions"
       filterable
-      placeholder="选择 AI 模型"
+      :placeholder="t('chat.modelSelector.placeholder')"
       @update:value="handleModelChange"
       :consistent-menu-width="false"
       size="medium"
@@ -13,7 +13,7 @@
     >
       <template #header>
         <div class="px-3 py-2 text-xs" style="color: var(--n-text-color-3)">
-          共 {{ totalModelsCount }} 个模型可用
+          {{ t('chat.modelSelector.totalModels', { count: totalModelsCount }) }}
         </div>
       </template>
     </n-select>
@@ -22,9 +22,11 @@
 
 <script setup>
 import { ref, computed, watch, h } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { NSelect, NTag } from 'naive-ui'
-import { useChatStore } from '@/stores/chat'
+import { useChatStore, getLocalizedName } from '@/stores/chat'
 
+const { t, locale } = useI18n()
 const chatStore = useChatStore()
 
 const selectedModel = ref(chatStore.currentModel)
@@ -44,7 +46,7 @@ const renderLabel = (option) => {
       size: 'tiny',
       type: 'warning',
       style: { marginLeft: '4px' }
-    }, { default: () => '思考' }))
+    }, { default: () => t('chat.modelSelector.thinking') }))
   }
 
   return h('div', { style: { display: 'flex', alignItems: 'center' } }, [
@@ -53,14 +55,17 @@ const renderLabel = (option) => {
   ])
 }
 
-// 提供商显示名称映射（从数据库读取）
-const providerDisplayName = computed(() => {
-  const map = {}
-  chatStore.providers.forEach(provider => {
-    map[provider.name] = provider.display_name
-  })
-  return map
-})
+// 获取提供商显示名称（从后端返回的 display_names 获取）
+const getProviderDisplayName = (providerName) => {
+  const provider = chatStore.providers.find(p => p.name === providerName)
+  return getLocalizedName(provider, locale.value)
+}
+
+// 获取模型显示名称（从后端返回的 display_names 获取）
+const getModelDisplayName = (modelName) => {
+  const model = chatStore.availableModels.find(m => m.name === modelName)
+  return getLocalizedName(model, locale.value)
+}
 
 // 分组后的模型选项
 const groupedModelOptions = computed(() => {
@@ -79,7 +84,7 @@ const groupedModelOptions = computed(() => {
       }
     }
     acc[provider].models.push({
-      label: model.display_name,
+      label: getModelDisplayName(model.name),
       value: model.name,
       sortOrder: model.sort_order || 999,
       // 添加额外信息用于搜索
@@ -97,7 +102,7 @@ const groupedModelOptions = computed(() => {
   })
 
   sortedProviders.forEach(provider => {
-    const providerLabel = providerDisplayName.value[provider] || provider
+    const providerLabel = getProviderDisplayName(provider)
     const models = grouped[provider].models
 
     result.push({
@@ -123,6 +128,12 @@ const handleModelChange = async (value) => {
 // 监听 store 中的模型变化
 watch(() => chatStore.currentModel, (newModel) => {
   selectedModel.value = newModel
+})
+
+// 监听语言变化，重新计算选项
+watch(() => locale.value, () => {
+  // 触发重新计算
+  selectedModel.value = chatStore.currentModel
 })
 </script>
 

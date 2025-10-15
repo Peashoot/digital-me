@@ -2,6 +2,35 @@ import { defineStore } from 'pinia'
 import { supabase } from '@/lib/supabase'
 import { useUserStore } from './user'
 
+/**
+ * 获取国际化显示名称的辅助函数
+ * @param {Object} item - 包含 display_names 或 display_name 的对象
+ * @param {string} locale - 语言代码（如 'zh-CN', 'en-US'）
+ * @returns {string} - 显示名称
+ */
+function getLocalizedName(item, locale = 'zh-CN') {
+  if (!item) return ''
+
+  // 如果有 display_names JSONB 字段，优先使用
+  if (item.display_names) {
+    // 尝试获取对应语言的名称
+    if (item.display_names[locale]) {
+      return item.display_names[locale]
+    }
+    // 如果没有对应语言，尝试获取默认语言（zh-CN）
+    if (item.display_names['zh-CN']) {
+      return item.display_names['zh-CN']
+    }
+    // 如果都没有，使用 en-US
+    if (item.display_names['en-US']) {
+      return item.display_names['en-US']
+    }
+  }
+
+  // 如果没有 display_names，使用 display_name
+  return item.display_name || item.name || ''
+}
+
 export const useChatStore = defineStore('chat', {
   state: () => ({
     conversations: [],
@@ -857,3 +886,6 @@ export const useChatStore = defineStore('chat', {
     }
   }
 })
+
+// 导出辅助函数供其他组件使用
+export { getLocalizedName }

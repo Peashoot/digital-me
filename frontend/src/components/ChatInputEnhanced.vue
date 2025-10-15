@@ -18,7 +18,7 @@
             type="button"
             @click="toggleThinkMode"
             :disabled="disabled || !isClaudeModel"
-            :title="!isClaudeModel ? '深度思考仅支持 Claude 模型' : ''"
+            :title="!isClaudeModel ? t('chat.input.thinkModeHint') : ''"
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all duration-200"
             :class="[
               localConfig.thinkMode
@@ -36,7 +36,7 @@
             >
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
-            <span class="text-xs sm:text-sm font-medium select-none">深度思考</span>
+            <span class="text-xs sm:text-sm font-medium select-none">{{ t('chat.input.thinkMode') }}</span>
             <span
               v-if="localConfig.thinkMode"
               class="ml-0.5 w-1.5 h-1.5 bg-amber-600 dark:bg-amber-400 rounded-full"
@@ -65,7 +65,7 @@
             >
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
             </svg>
-            <span class="text-xs sm:text-sm font-medium select-none">联网查询</span>
+            <span class="text-xs sm:text-sm font-medium select-none">{{ t('chat.input.webSearch') }}</span>
             <span
               v-if="localConfig.webSearch"
               class="ml-0.5 w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full"
@@ -87,12 +87,12 @@
             :disabled="disabled"
             :class="{ 'opacity-50 cursor-not-allowed': disabled }"
             class="relative flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary-400 dark:hover:border-primary-600 transition-colors cursor-pointer group"
-            title="上传附件 (PDF, TXT, DOC, 图片)"
+            :title="t('chat.input.attachFile')"
           >
             <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
             </svg>
-            <span class="text-xs sm:text-sm text-gray-700 dark:text-gray-300 select-none">附件</span>
+            <span class="text-xs sm:text-sm text-gray-700 dark:text-gray-300 select-none">{{ t('chat.input.attachFile') }}</span>
             <!-- File count badge -->
             <span
               v-if="attachedFiles.length > 0"
@@ -111,7 +111,7 @@
             @click="toggleConfig"
             class="md:hidden px-2 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-primary-500 dark:hover:text-primary-400 transition-colors"
           >
-            {{ showConfig ? '收起' : '展开' }}
+            {{ showConfig ? t('chat.input.collapseConfig') : t('chat.input.expandConfig') }}
           </button>
         </div>
       </div>
@@ -128,7 +128,7 @@
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
-          展开配置
+          {{ t('chat.input.expandConfig') }}
         </button>
       </div>
 
@@ -154,7 +154,7 @@
           <button
             @click="removeFile(index)"
             class="p-1 hover:bg-primary-100 dark:hover:bg-primary-800 rounded transition-colors"
-            title="移除文件"
+            :title="t('chat.file.remove')"
           >
             <svg class="w-4 h-4 text-primary-600 dark:text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -203,7 +203,7 @@
           @click="handleSend"
           :disabled="!canSend"
           class="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-2xl bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 dark:disabled:bg-gray-700 text-white transition-all duration-200 btn-touch disabled:cursor-not-allowed disabled:opacity-50 shadow-md hover:shadow-lg active:shadow-sm"
-          :title="canSend ? 'Enter 发送' : '输入内容后发送'"
+          :title="canSend ? t('chat.input.sendHint') : ''"
         >
           <!-- Send Icon -->
           <svg
@@ -233,7 +233,7 @@
           v-else
           @click="handleStop"
           class="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center rounded-2xl bg-red-500 hover:bg-red-600 text-white transition-all duration-200 btn-touch shadow-md hover:shadow-lg active:shadow-sm"
-          title="停止生成"
+          :title="t('chat.input.stop')"
         >
           <svg
             class="w-5 h-5 sm:w-6 sm:h-6"
@@ -249,10 +249,10 @@
       <div class="flex items-center justify-between mt-2 px-1">
         <p class="text-xs text-gray-400 dark:text-gray-500">
           <kbd class="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600">Enter</kbd>
-          发送
+          {{ t('chat.input.sendHint') }}
           <span class="mx-1">•</span>
           <kbd class="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600">Shift+Enter</kbd>
-          换行
+          {{ t('chat.input.newlineHint') }}
         </p>
       </div>
     </div>
@@ -261,13 +261,16 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
 import ModelSelector from './ModelSelector.vue'
+
+const { t } = useI18n()
 
 const props = defineProps({
   placeholder: {
     type: String,
-    default: '输入消息... (Enter 发送, Shift+Enter 换行)'
+    default: ''
   },
   disabled: {
     type: Boolean,
@@ -426,7 +429,7 @@ const handleFileSelect = (event) => {
   files.forEach(file => {
     // Check file size (max 50MB)
     if (file.size > 50 * 1024 * 1024) {
-      alert(`文件 "${file.name}" 超过 50MB 限制`)
+      alert(t('chat.input.fileSizeLimit', { name: file.name }))
       return
     }
 
