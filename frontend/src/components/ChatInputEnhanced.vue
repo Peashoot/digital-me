@@ -9,58 +9,68 @@
       >
         <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
           <!-- Model Selector -->
-          <div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary-400 dark:hover:border-primary-600 transition-colors group">
-            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            <select
-              v-model="localConfig.model"
-              @change="handleConfigChange"
-              :disabled="disabled"
-              class="bg-transparent text-xs sm:text-sm text-gray-700 dark:text-gray-300 border-0 outline-none focus:ring-0 pr-6 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <option v-for="model in modelOptions" :key="model.value" :value="model.value">
-                {{ model.label }}
-              </option>
-            </select>
+          <div class="flex items-center gap-1.5">
+            <ModelSelector />
           </div>
 
-          <!-- Think Mode Toggle -->
-          <label
-            :class="{ 'opacity-50 cursor-not-allowed': disabled || !isClaudeModel }"
-            class="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary-400 dark:hover:border-primary-600 transition-colors cursor-pointer group"
+          <!-- Think Mode Toggle Button -->
+          <button
+            type="button"
+            @click="toggleThinkMode"
+            :disabled="disabled || !isClaudeModel"
             :title="!isClaudeModel ? '深度思考仅支持 Claude 模型' : ''"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all duration-200"
+            :class="[
+              localConfig.thinkMode
+                ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-400 dark:border-amber-600 text-amber-700 dark:text-amber-300'
+                : 'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-amber-300 dark:hover:border-amber-700',
+              (disabled || !isClaudeModel) && 'opacity-50 cursor-not-allowed'
+            ]"
           >
-            <input
-              type="checkbox"
-              v-model="localConfig.thinkMode"
-              @change="handleConfigChange"
-              :disabled="disabled || !isClaudeModel"
-              class="w-3.5 h-3.5 text-primary-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary-500 focus:ring-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              class="w-4 h-4 transition-colors"
+              :class="localConfig.thinkMode ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
-            <span class="text-xs sm:text-sm text-gray-700 dark:text-gray-300 select-none">深度思考</span>
-          </label>
+            <span class="text-xs sm:text-sm font-medium select-none">深度思考</span>
+            <span
+              v-if="localConfig.thinkMode"
+              class="ml-0.5 w-1.5 h-1.5 bg-amber-600 dark:bg-amber-400 rounded-full"
+            ></span>
+          </button>
 
-          <!-- Web Search Toggle -->
-          <label
-            :class="{ 'opacity-50 cursor-not-allowed': disabled }"
-            class="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary-400 dark:hover:border-primary-600 transition-colors cursor-pointer group"
+          <!-- Web Search Toggle Button -->
+          <button
+            type="button"
+            @click="toggleWebSearch"
+            :disabled="disabled"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all duration-200"
+            :class="[
+              localConfig.webSearch
+                ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-400 dark:border-blue-600 text-blue-700 dark:text-blue-300'
+                : 'bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-blue-300 dark:hover:border-blue-700',
+              disabled && 'opacity-50 cursor-not-allowed'
+            ]"
           >
-            <input
-              type="checkbox"
-              v-model="localConfig.webSearch"
-              @change="handleConfigChange"
-              :disabled="disabled"
-              class="w-3.5 h-3.5 text-primary-500 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-primary-500 focus:ring-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            />
-            <svg class="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              class="w-4 h-4 transition-colors"
+              :class="localConfig.webSearch ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
             </svg>
-            <span class="text-xs sm:text-sm text-gray-700 dark:text-gray-300 select-none">联网查询</span>
-          </label>
+            <span class="text-xs sm:text-sm font-medium select-none">联网查询</span>
+            <span
+              v-if="localConfig.webSearch"
+              class="ml-0.5 w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full"
+            ></span>
+          </button>
 
           <!-- File Upload Button -->
           <input
@@ -252,6 +262,7 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, watch } from 'vue'
 import { useChatStore } from '@/stores/chat'
+import ModelSelector from './ModelSelector.vue'
 
 const props = defineProps({
   placeholder: {
@@ -303,22 +314,21 @@ const attachedFiles = ref([])
 
 // Local config state
 const localConfig = ref({
-  model: chatStore.currentModel || 'glm-4',
   thinkMode: chatStore.isThinkModeEnabled || false,
   webSearch: chatStore.isWebSearchEnabled || false
 })
 
-// Model options
-const modelOptions = computed(() => {
-  return chatStore.availableModels.map(model => ({
-    label: model.display_name,
-    value: model.name
-  }))
-})
+// Model options (no longer needed, using ModelSelector component)
+// const modelOptions = computed(() => {
+//   return chatStore.availableModels.map(model => ({
+//     label: model.display_name,
+//     value: model.name
+//   }))
+// })
 
 // Check if current model is Claude
 const isClaudeModel = computed(() => {
-  return localConfig.value.model.toLowerCase().includes('claude')
+  return chatStore.currentModel.toLowerCase().includes('claude')
 })
 
 // Can send message
@@ -339,6 +349,26 @@ const toggleConfig = () => {
 }
 
 /**
+ * Toggle think mode
+ */
+const toggleThinkMode = async () => {
+  if (props.disabled || !isClaudeModel.value) return
+
+  localConfig.value.thinkMode = !localConfig.value.thinkMode
+  await handleConfigChange()
+}
+
+/**
+ * Toggle web search
+ */
+const toggleWebSearch = async () => {
+  if (props.disabled) return
+
+  localConfig.value.webSearch = !localConfig.value.webSearch
+  await handleConfigChange()
+}
+
+/**
  * Handle config change
  */
 const handleConfigChange = async () => {
@@ -349,7 +379,6 @@ const handleConfigChange = async () => {
 
   // Update store
   await chatStore.updateConversationConfig({
-    model: localConfig.value.model,
     thinkMode: localConfig.value.thinkMode,
     webSearch: localConfig.value.webSearch
   })
@@ -482,10 +511,6 @@ const handleResize = () => {
 /**
  * Watch store changes
  */
-watch(() => chatStore.currentModel, (newModel) => {
-  localConfig.value.model = newModel
-})
-
 watch(() => chatStore.isThinkModeEnabled, (value) => {
   localConfig.value.thinkMode = value
 })
@@ -495,7 +520,7 @@ watch(() => chatStore.isWebSearchEnabled, (value) => {
 })
 
 // Watch model change to disable think mode
-watch(() => localConfig.value.model, (newModel) => {
+watch(() => chatStore.currentModel, (newModel) => {
   if (!newModel.toLowerCase().includes('claude')) {
     localConfig.value.thinkMode = false
     handleConfigChange()
@@ -511,11 +536,6 @@ onMounted(() => {
   }
 
   window.addEventListener('resize', handleResize)
-
-  // Initialize config from store
-  if (chatStore.availableModels.length > 0) {
-    localConfig.value.model = chatStore.currentModel
-  }
 })
 
 /**

@@ -28,7 +28,10 @@ export const useChatStore = defineStore('chat', {
     // 新增：可用的 AI 模型列表
     availableModels: [],
 
-    // 新增：文件上传相关
+    // 新增：提供商列表
+    providers: [],
+
+    // 新增:文件上传相关
     uploadingFiles: [],
     uploadProgress: {}
   }),
@@ -55,6 +58,7 @@ export const useChatStore = defineStore('chat', {
       try {
         await Promise.all([
           this.fetchConversations(),
+          this.fetchProviders(),
           this.fetchAvailableModels()
         ])
       } catch (error) {
@@ -62,6 +66,40 @@ export const useChatStore = defineStore('chat', {
         this.error = error.message
       } finally {
         this.loading = false
+      }
+    },
+
+    /**
+     * 获取提供商列表
+     */
+    async fetchProviders() {
+      try {
+        const { data, error } = await supabase
+          .from('providers')
+          .select('*')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+
+        if (error) throw error
+
+        this.providers = data || []
+        return { success: true, providers: data }
+      } catch (error) {
+        console.error('获取提供商列表失败:', error)
+        // 如果获取失败，使用默认提供商列表
+        this.providers = [
+          { name: 'anthropic', display_name: 'Anthropic (Claude)' },
+          { name: 'zhipu', display_name: '智谱 AI (GLM)' },
+          { name: 'moonshot', display_name: 'Moonshot (Kimi)' },
+          { name: 'deepseek', display_name: 'DeepSeek' },
+          { name: 'xai', display_name: 'xAI (Grok)' },
+          { name: 'google', display_name: 'Google (Gemini)' },
+          { name: 'alibaba', display_name: '阿里云 (通义千问)' },
+          { name: 'bytedance', display_name: '字节跳动 (豆包)' },
+          { name: 'tencent', display_name: '腾讯 (混元)' },
+          { name: 'openai', display_name: 'OpenAI' }
+        ]
+        return { success: false, error: error.message }
       }
     },
 
