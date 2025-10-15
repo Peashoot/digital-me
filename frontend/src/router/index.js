@@ -27,6 +27,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/persona-setup',
+    name: 'PersonaSetup',
+    component: () => import('@/views/PersonaSetupView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/:conversationId',
     name: 'Conversation',
     component: () => import('@/views/ChatView.vue'),

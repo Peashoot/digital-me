@@ -29,7 +29,14 @@ import { useChatStore, getLocalizedName } from '@/stores/chat'
 const { t, locale } = useI18n()
 const chatStore = useChatStore()
 
-const selectedModel = ref(chatStore.currentModel)
+// 使用 computed 来确保 selectedModel 始终同步 store 的值
+const selectedModel = computed({
+  get: () => chatStore.currentModel,
+  set: (value) => {
+    // 这个 setter 会在 n-select 更新时被调用
+    // 但实际的更新逻辑在 handleModelChange 中
+  }
+})
 
 // 自定义渲染标签，添加图标
 const renderLabel = (option) => {
@@ -125,15 +132,9 @@ const handleModelChange = async (value) => {
   await chatStore.updateConversationConfig({ model: value })
 }
 
-// 监听 store 中的模型变化
-watch(() => chatStore.currentModel, (newModel) => {
-  selectedModel.value = newModel
-})
-
-// 监听语言变化，重新计算选项
+// 监听语言变化，重新触发渲染
 watch(() => locale.value, () => {
-  // 触发重新计算
-  selectedModel.value = chatStore.currentModel
+  // 语言变化时，组件会自动重新渲染
 })
 </script>
 

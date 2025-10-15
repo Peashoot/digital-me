@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { supabase } from '@/lib/supabase'
 import { useUserStore } from './user'
+import { usePersonaStore } from './persona'
 
 /**
  * 获取国际化显示名称的辅助函数
@@ -161,6 +162,10 @@ export const useChatStore = defineStore('chat', {
           { name: 'claude-3-5-sonnet-20241022', display_name: 'Claude 3.5 Sonnet', provider: 'anthropic', sort_order: 2 },
           { name: 'moonshot-v1-8k', display_name: 'Kimi (8K)', provider: 'moonshot', sort_order: 3 }
         ]
+        // 设置默认模型
+        if (this.availableModels.length > 0) {
+          this.conversationConfig.model = this.availableModels[0].name
+        }
         return { success: false, error: error.message }
       }
     },
@@ -389,7 +394,7 @@ export const useChatStore = defineStore('chat', {
       }
 
       this.error = null
-      this.sending = true
+      // this.sending is now set after the user message is pushed.
 
       try {
         // 如果没有当前会话,先创建一个(使用消息前15个字符作为标题)
@@ -432,6 +437,9 @@ export const useChatStore = defineStore('chat', {
         // 记录用户消息 ID，防止 Realtime 重复添加
         this.processedMessageIds.add(userMessage.id)
 
+        // 用户消息已推入，现在显示“发送中”指示器
+        this.sending = true
+
         // 2. 创建临时的流式消息对象(不立即添加到列表)
         const tempMessageId = `temp-${Date.now()}`
         this.streamingMessage = {
@@ -444,7 +452,7 @@ export const useChatStore = defineStore('chat', {
         }
         this.streamingThinking = '' // 重置思考过程
 
-        this.sending = true
+        // The second this.sending = true was redundant and has been removed.
 
         // 3. 调用 Edge Function 使用 SSE 流式接收
         console.log('开始 SSE 连接...')
@@ -462,7 +470,14 @@ export const useChatStore = defineStore('chat', {
           },
           body: JSON.stringify({
             conversation_id: this.currentConversation.id,
-            message: content
+            message: content,
+            config: {
+              model: this.conversationConfig.model,
+              think_mode: this.conversationConfig.thinkMode,
+              web_search: this.conversationConfig.webSearch,
+              temperature: this.conversationConfig.temperature,
+              max_tokens: this.conversationConfig.maxTokens
+            }
           }),
           signal: this.abortController.signal
         })
@@ -511,6 +526,10 @@ export const useChatStore = defineStore('chat', {
                   }
                   // 处理普通内容
                   else if (parsed.type === 'chunk' && parsed.content) {
+                    // 一旦收到任何内容块，就停止显示“发送中”指示器
+                    if (this.sending) {
+                      this.sending = false
+                    }
                     // 第一次收到内容时,将流式消息添加到列表
                     if (this.streamingMessage.content === '' && !this.messages.find(m => m.id === tempMessageId)) {
                       this.messages.push(this.streamingMessage)
@@ -531,24 +550,22 @@ export const useChatStore = defineStore('chat', {
                     this.processedMessageIds.add(parsed.message.id)
                     console.log('[SSE] 已记录消息 ID 到 processedMessageIds')
 
-                    // 流式接收完成,用数据库中的消息替换临时消息
+                    // 流式接收完成,处理消息的最终状态
+                    // 1. 查找并移除临时消息
                     const index = this.messages.findIndex(m => m.id === tempMessageId)
-                    console.log('[SSE] 查找临时消息索引:', index, ', 临时消息ID:', tempMessageId)
-
                     if (index !== -1) {
-                      // 找到临时消息，替换它
-                      this.messages[index] = parsed.message
-                      console.log('[SSE] 已替换临时消息为真实消息')
+                      this.messages.splice(index, 1)
+                      console.log('[SSE] 已移除临时消息')
+                    }
+
+                    // 2. 检查真实消息是否已存在（可能由 Realtime 添加）
+                    const exists = this.messages.some(m => m.id === parsed.message.id)
+                    if (!exists) {
+                      // 3. 如果不存在，则添加真实消息
+                      this.messages.push(parsed.message)
+                      console.log('[SSE] 真实消息不存在，添加它')
                     } else {
-                      // 临时消息不在列表中，检查真实消息是否已存在
-                      const exists = this.messages.some(m => m.id === parsed.message.id)
-                      if (!exists) {
-                        // 真实消息也不存在，添加它
-                        this.messages.push(parsed.message)
-                        console.log('[SSE] 临时消息不存在，直接添加真实消息')
-                      } else {
-                        console.log('[SSE] 真实消息已存在，跳过添加')
-                      }
+                      console.log('[SSE] 真实消息已由 Realtime 添加，跳过')
                     }
 
                     this.streamingMessage = null

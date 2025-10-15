@@ -1,14 +1,21 @@
 <template>
-  <router-view />
+  <n-config-provider>
+    <n-message-provider>
+      <router-view />
+    </n-message-provider>
+  </n-config-provider>
 </template>
 
 <script setup>
 import { onMounted } from 'vue'
+import { NConfigProvider, NMessageProvider } from 'naive-ui'
 import { useUserStore } from './stores/user'
+import { usePersonaStore } from './stores/persona'
 
 const userStore = useUserStore()
+const personaStore = usePersonaStore()
 
-onMounted(() => {
+onMounted(async () => {
   // 监听视口高度变化（处理移动端键盘弹出）
   const setVH = () => {
     const vh = window.innerHeight * 0.01
@@ -18,6 +25,11 @@ onMounted(() => {
   setVH()
   window.addEventListener('resize', setVH)
   window.addEventListener('orientationchange', setVH)
+
+  // 初始化 persona store（如果用户已登录）
+  if (userStore.isLoggedIn) {
+    await personaStore.fetchPersona()
+  }
 })
 </script>
 

@@ -176,7 +176,7 @@
       </div>
 
       <!-- Connected Accounts -->
-      <div class="card p-6 sm:p-8">
+      <div class="card p-6 sm:p-8 mb-6">
         <h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
           关联账号
         </h3>
@@ -203,6 +203,75 @@
           </div>
         </div>
       </div>
+
+      <!-- Digital Twin Settings -->
+      <div class="card p-6 sm:p-8">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+            数字分身
+          </h3>
+          <span
+            v-if="personaStore.hasPersona"
+            :class="[
+              'px-3 py-1 text-xs rounded-full',
+              personaStore.isActive
+                ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
+            ]"
+          >
+            {{ personaStore.isActive ? '已启用' : '已停用' }}
+          </span>
+        </div>
+
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          配置AI以你的身份和风格回答问题，打造专属数字分身
+        </p>
+
+        <div class="space-y-3">
+          <!-- Setup Button -->
+          <button
+            @click="goToPersonaSetup"
+            class="w-full flex items-center justify-between p-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-lg transition-all btn-touch shadow-md hover:shadow-lg"
+          >
+            <div class="flex items-center gap-3">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <div class="text-left">
+                <div class="text-sm font-semibold">
+                  {{ personaStore.hasPersona ? '编辑数字分身' : '创建数字分身' }}
+                </div>
+                <div v-if="personaStore.hasPersona" class="text-xs opacity-90">
+                  完整度: {{ personaStore.completeness }}%
+                </div>
+              </div>
+            </div>
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+
+          <!-- Info Cards -->
+          <div v-if="personaStore.hasPersona" class="grid grid-cols-2 gap-3">
+            <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                显示名称
+              </div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                {{ personaStore.displayName || '未设置' }}
+              </div>
+            </div>
+            <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+              <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                最后更新
+              </div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white">
+                {{ formatDate(personaStore.persona?.last_updated) }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -212,11 +281,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useChatStore } from '@/stores/chat'
+import { usePersonaStore } from '@/stores/persona'
 import MobileHeader from '@/components/MobileHeader.vue'
 
 const router = useRouter()
 const userStore = useUserStore()
 const chatStore = useChatStore()
+const personaStore = usePersonaStore()
 
 const profile = computed(() => userStore.profile)
 const conversationCount = computed(() => chatStore.conversations.length)
@@ -249,6 +320,7 @@ const error = ref(null)
 
 onMounted(() => {
   loadProfile()
+  personaStore.fetchPersona()
 })
 
 const loadProfile = () => {
@@ -264,6 +336,24 @@ const loadProfile = () => {
 
 const goBack = () => {
   router.back()
+}
+
+const goToPersonaSetup = () => {
+  router.push({ name: 'PersonaSetup' })
+}
+
+const formatDate = (dateString) => {
+  if (!dateString) return '未设置'
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now - date
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) return '今天'
+  if (diffDays === 1) return '昨天'
+  if (diffDays < 7) return `${diffDays}天前`
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前`
+  return `${Math.floor(diffDays / 30)}月前`
 }
 
 const editAvatar = () => {
