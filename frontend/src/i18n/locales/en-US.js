@@ -288,7 +288,9 @@ export default {
     uploadFailed: 'Upload failed',
     deleteFailed: 'Delete failed',
     sendMessageFailed: 'Failed to send message: {error}',
-    copyFailed: 'Copy failed'
+    copyFailed: 'Copy failed',
+    streamTimeout: 'AI response timeout, please retry',
+    streamTimeoutDescription: 'Waiting for AI response exceeded {timeout} seconds, connection closed automatically'
   },
 
   // Success Messages

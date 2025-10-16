@@ -46,6 +46,8 @@ export const useChatStore = defineStore('chat', {
     streamingThinking: null, // 存储正在流式接收的思考过程
     abortController: null, // 用于中断请求的控制器
     processedMessageIds: new Set(), // 记录已通过 SSE 处理的消息 ID，避免 Realtime 重复添加
+    streamTimeout: null, // 流超时定时器
+    streamTimeoutDuration: 120000, // 流超时时间（毫秒），默认120秒
 
     // 新增：对话配置
     conversationConfig: {
@@ -468,6 +470,9 @@ export const useChatStore = defineStore('chat', {
 
         this.abortController = new AbortController()
 
+        // 设置流超时定时器
+        this.startStreamTimeout()
+
         const response = await fetch(`${supabase.supabaseUrl}/functions/v1/chat`, {
           method: 'POST',
           headers: {
@@ -507,6 +512,7 @@ export const useChatStore = defineStore('chat', {
 
             if (done) {
               console.log('SSE 流结束')
+              this.clearStreamTimeout() // 清除超时定时器
               break
             }
 
@@ -519,6 +525,9 @@ export const useChatStore = defineStore('chat', {
 
                 try {
                   const parsed = JSON.parse(data)
+
+                  // 每次收到数据都重置超时定时器
+                  this.resetStreamTimeout()
 
                   if (parsed.type === 'thinking' && parsed.content) {
                     if (this.isTyping) this.isTyping = false // Stop typing indicator
@@ -538,6 +547,7 @@ export const useChatStore = defineStore('chat', {
                   } else if (parsed.type === 'tool_call' && parsed.toolCall) {
                     console.log('工具调用:', parsed.toolCall)
                   } else if (parsed.type === 'done' && parsed.message) {
+                    this.clearStreamTimeout() // 清除超时定时器
                     this.processedMessageIds.add(parsed.message.id)
 
                     const index = this.messages.findIndex(m => m.id === tempMessageId)
@@ -584,12 +594,19 @@ export const useChatStore = defineStore('chat', {
         return { success: true, message: userMessage }
       } catch (error) {
         console.error('发送消息失败:', error)
+        this.clearStreamTimeout() // 清除超时定时器
         this.sending = false
         this.isTyping = false
 
         if (error.name === 'AbortError') {
           console.log('请求已被用户中断')
           return { success: true, aborted: true }
+        }
+
+        // 检查是否是超时错误
+        if (error.message === 'STREAM_TIMEOUT') {
+          console.log('SSE 流超时')
+          return { success: false, error: 'streamTimeout', timeout: true }
         }
 
         this.error = error.message
@@ -613,6 +630,8 @@ export const useChatStore = defineStore('chat', {
      */
     async stopGeneration() {
       console.log('停止消息生成')
+
+      this.clearStreamTimeout() // 清除超时定时器
 
       if (this.abortController) {
         this.abortController.abort()
@@ -840,6 +859,7 @@ export const useChatStore = defineStore('chat', {
      * 清理状态
      */
     cleanup() {
+      this.clearStreamTimeout() // 清除超时定时器
       if (this.realtimeChannel) {
         supabase.removeChannel(this.realtimeChannel)
       }
@@ -852,6 +872,68 @@ export const useChatStore = defineStore('chat', {
       this.uploadingFiles = []
       this.uploadProgress = {}
       this.processedMessageIds.clear()
+    },
+
+    /**
+     * 启动流超时定时器
+     */
+    startStreamTimeout() {
+      // 清除之前的定时器（如果存在）
+      this.clearStreamTimeout()
+
+      console.log(`设置流超时定时器: ${this.streamTimeoutDuration / 1000}秒`)
+
+      this.streamTimeout = setTimeout(() => {
+        console.error('SSE 流超时')
+
+        // 中断请求
+        if (this.abortController) {
+          this.abortController.abort()
+          this.abortController = null
+        }
+
+        // 保存已接收的内容并标记为超时
+        if (this.streamingMessage && this.streamingMessage.content) {
+          const tempId = this.streamingMessage.id
+          this.savePartialMessage(
+            this.streamingMessage.content + '\n\n[AI响应超时]',
+            tempId
+          )
+        } else if (this.streamingMessage) {
+          // 如果没有内容，直接移除临时消息
+          const index = this.messages.findIndex(m => m.id === this.streamingMessage.id)
+          if (index !== -1) {
+            this.messages.splice(index, 1)
+          }
+        }
+
+        this.streamingMessage = null
+        this.streamingThinking = null
+        this.sending = false
+        this.isTyping = false
+
+        // 抛出超时错误
+        this.error = 'STREAM_TIMEOUT'
+      }, this.streamTimeoutDuration)
+    },
+
+    /**
+     * 重置流超时定时器
+     */
+    resetStreamTimeout() {
+      // 重新启动定时器
+      this.startStreamTimeout()
+    },
+
+    /**
+     * 清除流超时定时器
+     */
+    clearStreamTimeout() {
+      if (this.streamTimeout) {
+        clearTimeout(this.streamTimeout)
+        this.streamTimeout = null
+        console.log('已清除流超时定时器')
+      }
     }
   }
 })

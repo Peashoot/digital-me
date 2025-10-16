@@ -397,11 +397,21 @@ const handleSendMessage = async (content, uploadedFiles = []) => {
     // Display error as a system message in the chat
     console.error('Failed to send message:', result.error)
 
+    let errorContent = ''
+
+    // 检查是否是超时错误
+    if (result.timeout || result.error === 'streamTimeout') {
+      const timeoutSeconds = chatStore.streamTimeoutDuration / 1000
+      errorContent = t('error.streamTimeoutDescription', { timeout: timeoutSeconds })
+    } else {
+      errorContent = t('error.sendMessageFailed', { error: result.error })
+    }
+
     // Add system error message
     const errorMessage = {
       id: `error-${Date.now()}`,
       role: 'system',
-      content: t('error.sendMessageFailed', { error: result.error }),
+      content: errorContent,
       created_at: new Date().toISOString(),
       is_error: true
     }

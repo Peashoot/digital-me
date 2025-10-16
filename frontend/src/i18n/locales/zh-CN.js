@@ -288,7 +288,9 @@ export default {
     uploadFailed: '上传失败',
     deleteFailed: '删除失败',
     sendMessageFailed: '发送消息失败: {error}',
-    copyFailed: '复制失败'
+    copyFailed: '复制失败',
+    streamTimeout: 'AI响应超时，请重试',
+    streamTimeoutDescription: '等待AI响应超过{timeout}秒，连接已自动关闭'
   },
 
   // 成功消息
