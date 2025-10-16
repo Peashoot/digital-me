@@ -72,7 +72,6 @@ export const useChatStore = defineStore('chat', {
     conversationList: (state) => state.conversations,
     isLoading: (state) => state.loading,
     isSending: (state) => state.sending,
-    isTyping: (state) => state.isTyping,
     currentModel: (state) => state.conversationConfig.model,
     isThinkModeEnabled: (state) => state.conversationConfig.thinkMode,
     isWebSearchEnabled: (state) => state.conversationConfig.webSearch

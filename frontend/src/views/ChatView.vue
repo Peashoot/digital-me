@@ -413,6 +413,33 @@ watch(
 )
 
 /**
+ * Watch for streaming content changes and auto-scroll
+ */
+watch(
+  () => {
+    if (!messages.value || messages.value.length === 0) return null
+    const lastMessage = messages.value[messages.value.length - 1]
+    // We only care about the content of the assistant's streaming message
+    if (lastMessage.role === 'assistant' && sending.value) {
+      return lastMessage.content
+    }
+    return null
+  },
+  (newContent) => {
+    if (newContent) {
+      const container = messagesContainer.value
+      if (container) {
+        const threshold = 150 // px from bottom
+        const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+        if (atBottom) {
+          scrollToBottom(true) // Use smooth scroll for a better experience
+        }
+      }
+    }
+  }
+)
+
+/**
  * Watch route changes to load conversation
  */
 watch(

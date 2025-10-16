@@ -93,14 +93,18 @@
       </div>
 
       <!-- Message Bubble -->
-      <div class="px-4 py-3 rounded-2xl break-words inline-block" :class="[
+      <div class="px-4 py-3 rounded-2xl break-words max-w-full overflow-hidden" :class="[
         message.role === 'user'
           ? 'bg-primary-500 text-white rounded-tr-sm'
           : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-tl-sm'
       ]">
-        <!-- Markdown Content -->
-        <div v-if="message.role === 'assistant'" class="prose prose-sm sm:prose dark:prose-invert max-w-none"
-          v-html="renderedContent"></div>
+        <!-- Assistant Message with Parts -->
+        <template v-if="message.role === 'assistant'">
+          <template v-for="(part, index) in messageParts" :key="index">
+            <CodeBlock v-if="part.type === 'code'" :code="part.code" :lang="part.lang" />
+            <div v-else class="prose prose-sm sm:prose dark:prose-invert" v-html="part.html"></div>
+          </template>
+        </template>
 
         <!-- Plain Text for User Messages -->
         <p v-else class="text-sm sm:text-base whitespace-pre-wrap">
@@ -109,7 +113,7 @@
       </div>
 
       <!-- Actions and Timestamp -->
-      <div v-if="!chatStore.isSending" class="mt-1.5 flex items-center justify-between w-full text-xs">
+      <div v-if="message.id !== chatStore.streamingMessage?.id" class="mt-1.5 flex items-center justify-between w-full text-xs">
         <!-- Layout for User Messages -->
         <template v-if="message.role === 'user'">
           <div class="flex items-center gap-3">
@@ -196,6 +200,7 @@ import { useChatStore } from '@/stores/chat'
 import { useMessage } from 'naive-ui'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import CodeBlock from './CodeBlock.vue'
 
 const props = defineProps({
   message: {
@@ -219,27 +224,45 @@ marked.setOptions({
   mangle: false
 })
 
-// Render markdown content safely
-const renderedContent = computed(() => {
-  if (props.message.role !== 'assistant') {
-    return props.message.content
+// Parse the message content into parts (markdown and code)
+const messageParts = computed(() => {
+  if (props.message.role !== 'assistant' || !props.message.content) {
+    return []
   }
 
-  try {
-    const rawHtml = marked.parse(props.message.content)
-    return DOMPurify.sanitize(rawHtml, {
-      ALLOWED_TAGS: [
-        'p', 'br', 'strong', 'em', 'u', 'code', 'pre',
-        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'ul', 'ol', 'li', 'blockquote', 'a',
-        'table', 'thead', 'tbody', 'tr', 'th', 'td'
-      ],
-      ALLOWED_ATTR: ['href', 'target', 'rel', 'class']
-    })
-  } catch (error) {
-    console.error('Markdown 渲染失败:', error)
-    return props.message.content
+  const parts = []
+  // Regex to split by code blocks, keeping the delimiters
+  const regex = /(```[a-zA-Z]*\n[\s\S]*?```)/g
+  const splitContent = props.message.content.split(regex)
+
+  for (const text of splitContent) {
+    if (!text) continue
+
+    if (text.startsWith('```')) {
+      const match = text.match(/```([a-zA-Z]*)\n([\s\S]*?)```/)
+      if (match) {
+        parts.push({
+          type: 'code',
+          lang: match[1] || 'plaintext',
+          code: match[2].trim()
+        })
+      }
+    } else {
+      try {
+        const rawHtml = marked.parse(text)
+        const sanitizedHtml = DOMPurify.sanitize(rawHtml, {
+          ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'a', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+          ALLOWED_ATTR: ['href', 'target', 'rel', 'class']
+        })
+        parts.push({ type: 'markdown', html: sanitizedHtml })
+      } catch (error) {
+        console.error('Markdown rendering failed for a part:', error)
+        parts.push({ type: 'markdown', html: text })
+      }
+    }
   }
+
+  return parts
 })
 
 // Format timestamp
