@@ -4,9 +4,6 @@
     <MobileHeader :title="currentConversationTitle" :subtitle="currentConversationSubtitle"
       :show-menu-button="!showSidebar" @menu-click="toggleSidebar">
       <template #actions>
-        <!-- Language Selector -->
-        <LanguageSelector class="mr-2" />
-
         <!-- New Chat Button (desktop) -->
         <button @click="createNewChat"
           class="hidden sm:flex items-center gap-2 px-3 py-1.5 text-sm bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors btn-touch">
@@ -150,15 +147,20 @@
               <!-- Empty Conversation -->
               <div v-else class="text-center py-12">
                 <p class="text-gray-500 dark:text-gray-400">
-                  开始一段新的对话吧...
+                  {{ t('chat.conversationList.startConversation') }}
                 </p>
               </div>
 
               <!-- Typing Indicator -->
               <div v-show="isTyping" class="flex gap-3 mb-4">
                 <div
-                  class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                  <svg class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor"
+                  class="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-300 dark:bg-gray-700 flex items-center justify-center flex-shrink-0"
+                  :title="currentAiModelName">
+                  <!-- AI Provider Avatar -->
+                  <img v-if="currentAiAvatar" :src="currentAiAvatar" :alt="currentAiModelName"
+                    class="w-full h-full rounded-full object-cover" />
+                  <!-- Fallback Icon -->
+                  <svg v-else class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor"
                     viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -201,11 +203,11 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useChatStore } from '@/stores/chat'
+import { supabase } from '@/lib/supabase'
 import MobileHeader from '@/components/MobileHeader.vue'
 import ConversationList from '@/components/ConversationList.vue'
 import ChatMessage from '@/components/ChatMessage.vue'
 import ChatInputEnhanced from '@/components/ChatInputEnhanced.vue'
-import LanguageSelector from '@/components/LanguageSelector.vue'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -230,7 +232,39 @@ const currentConversationTitle = computed(() => {
 const currentConversationSubtitle = computed(() => {
   if (!currentConversation.value) return ''
   const count = messages.value.length
-  return count > 0 ? `${count} 条消息` : '开始对话'
+  return count > 0 ? t('chat.conversationList.messageCount', { count }) : t('chat.conversationList.startChat')
+})
+
+// 获取当前AI提供商的头像
+const currentAiAvatar = computed(() => {
+  let avatarUrl = chatStore.currentProviderAvatar
+
+  // 如果 avatarUrl 是相对路径，转换为完整 URL
+  if (avatarUrl && avatarUrl.startsWith('/storage/')) {
+    return `${supabase.supabaseUrl}${avatarUrl}`
+  }
+
+  return avatarUrl
+})
+
+// 获取当前AI模型的显示名称
+const currentAiModelName = computed(() => {
+  const currentModel = chatStore.availableModels.find(m => m.name === chatStore.currentModel)
+  if (currentModel) {
+    // 获取提供商名称
+    const provider = chatStore.providers.find(p => p.name === currentModel.provider)
+    const providerName = provider?.display_names?.['zh-CN'] || provider?.display_name || currentModel.provider || ''
+
+    // 获取模型名称
+    const modelName = currentModel.display_names?.['zh-CN'] || currentModel.display_name || currentModel.name
+
+    // 组合显示：提供商（模型）
+    if (providerName && modelName) {
+      return `${providerName}（${modelName}）`
+    }
+    return modelName
+  }
+  return 'AI'
 })
 
 /**
@@ -360,14 +394,14 @@ const handleSendMessage = async (content, uploadedFiles = []) => {
     await nextTick()
     scrollToBottom()
   } else {
-    // 将错误作为系统消息显示在聊天中
-    console.error('发送消息失败:', result.error)
+    // Display error as a system message in the chat
+    console.error('Failed to send message:', result.error)
 
-    // 添加系统错误消息
+    // Add system error message
     const errorMessage = {
       id: `error-${Date.now()}`,
       role: 'system',
-      content: `发送消息失败: ${result.error}`,
+      content: t('error.sendMessageFailed', { error: result.error }),
       created_at: new Date().toISOString(),
       is_error: true
     }

@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
     <!-- Header -->
-    <MobileHeader title="个人资料" :show-back-button="true" :show-user-menu="false" @back-click="goBack" />
+    <MobileHeader :title="t('settings.profile.title')" :show-back-button="true" :show-user-menu="false" @back-click="goBack" />
 
     <!-- Content -->
     <div class="max-w-2xl mx-auto px-4 py-6 sm:py-8 safe-bottom">
@@ -32,7 +32,7 @@
           </div>
 
           <h2 class="mt-4 text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
-            {{ profile?.nickname || profile?.username || '未设置昵称' }}
+            {{ profile?.nickname || profile?.username || t('settings.profile.notSet') }}
           </h2>
           <p class="mt-1 text-sm sm:text-base text-gray-500 dark:text-gray-400">
             @{{ profile?.username || 'username' }}
@@ -53,7 +53,7 @@
               {{ conversationCount }}
             </div>
             <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-              对话
+              {{ t('settings.profile.conversations') }}
             </div>
           </div>
           <div class="text-center">
@@ -61,7 +61,7 @@
               {{ messageCount }}
             </div>
             <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-              消息
+              {{ t('settings.profile.messages') }}
             </div>
           </div>
           <div class="text-center">
@@ -69,7 +69,7 @@
               {{ daysSinceJoined }}
             </div>
             <div class="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-              天数
+              {{ t('settings.profile.days') }}
             </div>
           </div>
         </div>
@@ -78,46 +78,46 @@
       <!-- Profile Form -->
       <div class="card p-6 sm:p-8 mb-6">
         <h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-6">
-          编辑资料
+          {{ t('settings.profile.editProfile') }}
         </h3>
 
         <form @submit.prevent="handleSave" class="space-y-4 sm:space-y-5">
           <!-- Username -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              用户名
+              {{ t('settings.profile.username') }}
             </label>
             <input v-model="formData.username" type="text" disabled
               class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed text-sm sm:text-base" />
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              用户名不可修改
+              {{ t('settings.profile.usernameNotEditable') }}
             </p>
           </div>
 
           <!-- Nickname -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              昵称
+              {{ t('settings.profile.nickname') }}
             </label>
-            <input v-model="formData.nickname" type="text" placeholder="输入昵称"
+            <input v-model="formData.nickname" type="text" :placeholder="t('settings.profile.nicknamePlaceholder')"
               class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 outline-none transition-all text-sm sm:text-base" />
           </div>
 
           <!-- Email -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              邮箱
+              {{ t('settings.profile.email') }}
             </label>
-            <input v-model="formData.email" type="email" placeholder="输入邮箱"
+            <input v-model="formData.email" type="email" :placeholder="t('settings.profile.emailPlaceholder')"
               class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 outline-none transition-all text-sm sm:text-base" />
           </div>
 
           <!-- Bio -->
           <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              个人简介
+              {{ t('settings.profile.bio') }}
             </label>
-            <textarea v-model="formData.bio" rows="3" placeholder="介绍一下自己..."
+            <textarea v-model="formData.bio" rows="3" :placeholder="t('settings.profile.bioPlaceholder')"
               class="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 outline-none transition-all resize-none text-sm sm:text-base"></textarea>
           </div>
 
@@ -133,20 +133,49 @@
           <div class="flex gap-3 pt-2">
             <button type="button" @click="handleReset"
               class="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors btn-touch text-sm sm:text-base font-medium">
-              重置
+              {{ t('settings.profile.reset') }}
             </button>
             <button type="submit" :disabled="saving"
               class="flex-1 px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors btn-touch disabled:opacity-50 disabled:cursor-not-allowed text-sm sm:text-base font-medium">
-              {{ saving ? '保存中...' : '保存' }}
+              {{ saving ? t('settings.profile.saving') : t('settings.profile.save') }}
             </button>
           </div>
         </form>
       </div>
 
+      <!-- Language Preference -->
+      <div class="card p-6 sm:p-8 mb-6">
+        <h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          {{ t('settings.appearance.languagePreference') }}
+        </h3>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          {{ t('settings.appearance.languageDescription') }}
+        </p>
+
+        <div class="relative">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            {{ t('settings.appearance.language') }}
+          </label>
+          <div class="relative">
+            <select v-model="currentLocale" @change="handleLanguageChange(currentLocale)"
+              class="w-full px-4 py-3 pr-10 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:focus:ring-primary-900 outline-none transition-all text-sm sm:text-base appearance-none cursor-pointer">
+              <option v-for="lang in supportedLocales" :key="lang.value" :value="lang.value">
+                {{ lang.flag }} {{ lang.label }}
+              </option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+              <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Connected Accounts -->
       <div class="card p-6 sm:p-8 mb-6">
         <h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-4">
-          关联账号
+          {{ t('settings.profile.connectedAccounts') }}
         </h3>
 
         <div class="space-y-3">
@@ -162,13 +191,13 @@
                   GitHub
                 </div>
                 <div class="text-xs text-gray-500 dark:text-gray-400">
-                  已连接
+                  {{ t('settings.profile.connected') }}
                 </div>
               </div>
             </div>
             <span
               class="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs rounded-full">
-              已绑定
+              {{ t('settings.profile.bound') }}
             </span>
           </div>
         </div>
@@ -178,7 +207,7 @@
       <div class="card p-6 sm:p-8">
         <div class="flex items-center justify-between mb-4">
           <h3 class="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
-            数字分身
+            {{ t('settings.profile.digitalTwin') }}
           </h3>
           <span v-if="personaStore.hasPersona" :class="[
             'px-3 py-1 text-xs rounded-full',
@@ -186,12 +215,12 @@
               ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400'
               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-400'
           ]">
-            {{ personaStore.isActive ? '已启用' : '已停用' }}
+            {{ personaStore.isActive ? t('settings.profile.enabled') : t('settings.profile.disabled') }}
           </span>
         </div>
 
         <p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
-          配置AI以你的身份和风格回答问题，打造专属数字分身
+          {{ t('settings.profile.digitalTwinDescription') }}
         </p>
 
         <div class="space-y-3">
@@ -205,10 +234,10 @@
               </svg>
               <div class="text-left">
                 <div class="text-sm font-semibold">
-                  {{ personaStore.hasPersona ? '编辑数字分身' : '创建数字分身' }}
+                  {{ personaStore.hasPersona ? t('settings.profile.editDigitalTwin') : t('settings.profile.createDigitalTwin') }}
                 </div>
                 <div v-if="personaStore.hasPersona" class="text-xs opacity-90">
-                  完整度: {{ personaStore.completeness }}%
+                  {{ t('settings.profile.completeness') }}: {{ personaStore.completeness }}%
                 </div>
               </div>
             </div>
@@ -221,15 +250,15 @@
           <div v-if="personaStore.hasPersona" class="grid grid-cols-2 gap-3">
             <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
               <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                显示名称
+                {{ t('settings.profile.displayName') }}
               </div>
               <div class="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {{ personaStore.displayName || '未设置' }}
+                {{ personaStore.displayName || t('settings.profile.notSet') }}
               </div>
             </div>
             <div class="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
               <div class="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                最后更新
+                {{ t('settings.profile.lastUpdated') }}
               </div>
               <div class="text-sm font-medium text-gray-900 dark:text-white">
                 {{ formatDate(personaStore.persona?.last_updated) }}
@@ -245,11 +274,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { useChatStore } from '@/stores/chat'
 import { usePersonaStore } from '@/stores/persona'
+import { supportedLocales, setLocale, getLocale } from '@/i18n'
+import { supabase } from '@/lib/supabase'
 import MobileHeader from '@/components/MobileHeader.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 const userStore = useUserStore()
 const chatStore = useChatStore()
@@ -257,14 +290,11 @@ const personaStore = usePersonaStore()
 
 const profile = computed(() => userStore.profile)
 const conversationCount = computed(() => chatStore.conversations.length)
+const currentLocale = ref(getLocale())
+const totalMessageCount = ref(0)
 
 // Calculate total messages across all conversations
-const messageCount = computed(() => {
-  return chatStore.conversations.reduce((total, conv) => {
-    // This is an estimate - you'd need to track this in the database
-    return total + 0 // Placeholder
-  }, 0)
-})
+const messageCount = computed(() => totalMessageCount.value)
 
 const daysSinceJoined = computed(() => {
   if (!profile.value?.created_at) return 0
@@ -284,10 +314,31 @@ const formData = ref({
 const saving = ref(false)
 const error = ref(null)
 
-onMounted(() => {
+onMounted(async () => {
   loadProfile()
   personaStore.fetchPersona()
+  // Initialize chatStore to load conversations
+  await chatStore.initialize()
+  // Fetch total message count
+  await fetchMessageCount()
 })
+
+const fetchMessageCount = async () => {
+  if (!userStore.user) return
+
+  try {
+    const { count, error } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .in('conversation_id', chatStore.conversations.map(c => c.id))
+
+    if (error) throw error
+    totalMessageCount.value = count || 0
+  } catch (error) {
+    console.error('Failed to fetch message count:', error)
+    totalMessageCount.value = 0
+  }
+}
 
 const loadProfile = () => {
   if (profile.value) {
@@ -309,22 +360,22 @@ const goToPersonaSetup = () => {
 }
 
 const formatDate = (dateString) => {
-  if (!dateString) return '未设置'
+  if (!dateString) return t('settings.profile.notSet')
   const date = new Date(dateString)
   const now = new Date()
   const diffMs = now - date
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-  if (diffDays === 0) return '今天'
-  if (diffDays === 1) return '昨天'
-  if (diffDays < 7) return `${diffDays}天前`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}周前`
-  return `${Math.floor(diffDays / 30)}月前`
+  if (diffDays === 0) return t('settings.profile.today')
+  if (diffDays === 1) return t('settings.profile.yesterday')
+  if (diffDays < 7) return t('settings.profile.daysAgo', { days: diffDays })
+  if (diffDays < 30) return t('settings.profile.weeksAgo', { weeks: Math.floor(diffDays / 7) })
+  return t('settings.profile.monthsAgo', { months: Math.floor(diffDays / 30) })
 }
 
 const editAvatar = () => {
   // TODO: Implement avatar upload
-  alert('头像上传功能即将推出')
+  alert(t('settings.profile.uploadAvatar'))
 }
 
 const handleSave = async () => {
@@ -339,13 +390,13 @@ const handleSave = async () => {
     })
 
     if (result.success) {
-      alert('保存成功')
+      alert(t('settings.profile.saveSuccess'))
     } else {
-      error.value = result.error || '保存失败'
+      error.value = result.error || t('settings.profile.saveError')
     }
   } catch (err) {
-    console.error('保存失败:', err)
-    error.value = '保存过程中发生错误'
+    console.error('Failed to save:', err)
+    error.value = t('settings.profile.saveErrorOccurred')
   } finally {
     saving.value = false
   }
@@ -354,6 +405,21 @@ const handleSave = async () => {
 const handleReset = () => {
   loadProfile()
   error.value = null
+}
+
+const handleLanguageChange = async (locale) => {
+  // Update i18n and localStorage
+  setLocale(locale)
+  currentLocale.value = locale
+
+  // Save to database
+  try {
+    await userStore.updateProfile({
+      language_preference: locale
+    })
+  } catch (err) {
+    console.error('Failed to save language preference:', err)
+  }
 }
 </script>
 

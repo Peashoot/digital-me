@@ -31,7 +31,7 @@
         message.role === 'user'
           ? 'bg-primary-500'
           : 'bg-gray-300 dark:bg-gray-700'
-      ]">
+      ]" :title="message.role === 'assistant' ? aiModelName : username">
         <!-- User Avatar -->
         <img v-if="message.role === 'user' && userAvatar" :src="userAvatar" :alt="username"
           class="w-full h-full rounded-full object-cover" />
@@ -40,7 +40,9 @@
         </span>
 
         <!-- AI Avatar -->
-        <svg v-else class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor"
+        <img v-if="message.role === 'assistant' && aiAvatar" :src="aiAvatar" :alt="aiModelName"
+          class="max-w-4/5 max-h-4/5 rounded-full object-contain" />
+        <svg v-else-if="message.role === 'assistant'" class="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor"
           viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -63,7 +65,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                 d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
-            思考过程
+            {{ t('chat.message.thinkingProcess') }}
           </summary>
           <div class="mt-2 text-xs sm:text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
             {{ message.thinking }}
@@ -102,6 +104,12 @@
         <template v-if="message.role === 'assistant'">
           <template v-for="(part, index) in messageParts" :key="index">
             <CodeBlock v-if="part.type === 'code'" :code="part.code" :lang="part.lang" />
+            <div v-else-if="part.type === 'interrupted'" class="mt-2 flex items-center gap-2 px-3 py-2 bg-orange-50 dark:bg-orange-900/20 border border-orange-300 dark:border-orange-700 rounded-lg">
+              <svg class="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span class="text-sm font-semibold text-orange-700 dark:text-orange-300">{{ t('chat.message.interrupted') }}</span>
+            </div>
             <div v-else class="prose prose-sm sm:prose dark:prose-invert" v-html="part.html"></div>
           </template>
         </template>
@@ -172,12 +180,12 @@
             </span>
           </div>
           <div class="text-gray-600 dark:text-gray-400 pl-5">
-            查询: {{ call.query }}
+            {{ t('chat.message.query') }}: {{ call.query }}
           </div>
           <!-- Show search results if available -->
           <div v-if="call.results && call.results.length > 0" class="mt-1 pl-5">
             <div class="text-xs text-gray-500 dark:text-gray-500">
-              参考来源:
+              {{ t('chat.message.referenceSources') }}:
               <a v-for="(result, idx) in call.results.slice(0, 3)" :key="idx" :href="result.url" target="_blank"
                 rel="noopener noreferrer" class="text-green-600 dark:text-green-400 hover:underline ml-1">
                 {{ result.title }}
@@ -201,6 +209,7 @@ import { useMessage } from 'naive-ui'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import CodeBlock from './CodeBlock.vue'
+import { supabase } from '@/lib/supabase'
 
 const props = defineProps({
   message: {
@@ -215,6 +224,84 @@ const chatStore = useChatStore()
 const messageApi = useMessage()
 const username = computed(() => userStore.username)
 const userAvatar = computed(() => userStore.avatar)
+
+// 获取AI提供商头像
+const aiAvatar = computed(() => {
+  if (props.message.role !== 'assistant') return null
+
+  let avatarUrl = null
+
+  // 如果消息有 model_provider 字段，使用它
+  if (props.message.model_provider) {
+    const provider = chatStore.providers.find(p => p.name === props.message.model_provider)
+    avatarUrl = provider?.avatar_url
+  } else {
+    // 否则使用当前对话配置的模型对应的提供商
+    avatarUrl = chatStore.currentProviderAvatar
+  }
+
+  // 如果 avatarUrl 是相对路径，转换为完整 URL
+  if (avatarUrl) {
+    // 如果是相对路径（以 /storage 开头），拼接完整 URL
+    if (avatarUrl.startsWith('/storage/')) {
+      return `${supabase.supabaseUrl}${avatarUrl}`
+    }
+    // 如果已经是完整 URL，直接返回
+    return avatarUrl
+  }
+
+  return null
+})
+
+// 获取AI模型的显示名称（用于 tooltip）
+const aiModelName = computed(() => {
+  if (props.message.role !== 'assistant') return ''
+
+  let providerName = ''
+  let modelName = ''
+
+  // 如果消息有 model_provider 字段
+  if (props.message.model_provider) {
+    const provider = chatStore.providers.find(p => p.name === props.message.model_provider)
+    // 获取提供商名称
+    providerName = provider?.display_names?.['zh-CN'] || provider?.display_name || props.message.model_provider
+
+    // 尝试从消息中获取模型名称
+    if (props.message.model_name) {
+      modelName = props.message.model_name
+    } else {
+      // 如果消息没有模型名称，尝试从当前配置的模型中推断
+      const currentModel = chatStore.availableModels.find(m =>
+        m.provider === props.message.model_provider
+      )
+      if (currentModel) {
+        modelName = currentModel.display_names?.['zh-CN'] || currentModel.display_name || currentModel.name
+      }
+    }
+  } else {
+    // 使用当前对话配置的模型
+    const currentModel = chatStore.availableModels.find(m => m.name === chatStore.currentModel)
+    if (currentModel) {
+      // 获取提供商名称
+      const provider = chatStore.providers.find(p => p.name === currentModel.provider)
+      providerName = provider?.display_names?.['zh-CN'] || provider?.display_name || currentModel.provider || ''
+
+      // 获取模型名称
+      modelName = currentModel.display_names?.['zh-CN'] || currentModel.display_name || currentModel.name
+    }
+  }
+
+  // 组合显示：提供商（模型）
+  if (providerName && modelName) {
+    return `${providerName}（${modelName}）`
+  } else if (modelName) {
+    return modelName
+  } else if (providerName) {
+    return providerName
+  }
+
+  return 'AI'
+})
 
 // Configure marked for better rendering
 marked.setOptions({
@@ -231,9 +318,20 @@ const messageParts = computed(() => {
   }
 
   const parts = []
+  let content = props.message.content
+
+  // 检查是否包含 [生成已中断] 标记
+  const interruptedMarker = '[生成已中断]'
+  const hasInterrupted = content.includes(interruptedMarker)
+
+  // 如果有标记，先移除它，稍后单独显示
+  if (hasInterrupted) {
+    content = content.replace(/\n*\[生成已中断\]\n*/g, '')
+  }
+
   // Regex to split by code blocks, keeping the delimiters
   const regex = /(```[a-zA-Z]*\n[\s\S]*?```)/g
-  const splitContent = props.message.content.split(regex)
+  const splitContent = content.split(regex)
 
   for (const text of splitContent) {
     if (!text) continue
@@ -262,6 +360,11 @@ const messageParts = computed(() => {
     }
   }
 
+  // 如果有中断标记，添加到末尾
+  if (hasInterrupted) {
+    parts.push({ type: 'interrupted', marker: interruptedMarker })
+  }
+
   return parts
 })
 
@@ -275,14 +378,14 @@ const formattedTime = computed(() => {
   const diffMins = Math.floor(diffMs / 60000)
 
   // Just now
-  if (diffMins < 1) return '刚刚'
+  if (diffMins < 1) return t('chat.time.justNow')
 
   // Minutes ago
-  if (diffMins < 60) return `${diffMins} 分钟前`
+  if (diffMins < 60) return t('chat.time.minutesAgo', { minutes: diffMins })
 
   // Hours ago
   const diffHours = Math.floor(diffMins / 60)
-  if (diffHours < 24) return `${diffHours} 小时前`
+  if (diffHours < 24) return t('chat.time.hoursAgo', { hours: diffHours })
 
   // Same year
   const isSameYear = date.getFullYear() === now.getFullYear()
@@ -312,11 +415,11 @@ const copyToClipboard = () => {
   if (!props.message.content) return
   navigator.clipboard.writeText(props.message.content)
     .then(() => {
-      messageApi.success(t('success.copied', '复制成功'))
+      messageApi.success(t('success.copied'))
     })
     .catch(err => {
-      console.error('复制失败:', err)
-      messageApi.error(t('error.copyFailed', '复制失败'))
+      console.error('Failed to copy:', err)
+      messageApi.error(t('error.copyFailed'))
     })
 }
 
@@ -345,9 +448,9 @@ const formatFileSize = (bytes) => {
  */
 const getToolName = (toolName) => {
   const toolNames = {
-    'web_search': '网络搜索',
-    'code_interpreter': '代码执行',
-    'file_reader': '文件读取'
+    'web_search': t('chat.tools.webSearch'),
+    'code_interpreter': t('chat.tools.codeInterpreter'),
+    'file_reader': t('chat.tools.fileReader')
   }
   return toolNames[toolName] || toolName
 }

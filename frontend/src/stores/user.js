@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { supabase } from '@/lib/supabase'
+import { setLocale } from '@/i18n'
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -87,6 +88,12 @@ export const useUserStore = defineStore('user', {
 
         if (error && error.code !== 'PGRST116') throw error
         this.profile = data
+
+        // Set user's language preference if available
+        if (data?.language_preference) {
+          setLocale(data.language_preference)
+        }
+
         return { success: true, profile: data }
       } catch (error) {
         console.error('获取 profile 失败:', error)

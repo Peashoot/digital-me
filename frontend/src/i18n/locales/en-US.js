@@ -83,7 +83,10 @@ export default {
       deleteTitle: 'Delete Conversation',
       deleteConfirm: 'Are you sure you want to delete this conversation? This action cannot be undone.',
       renameTitle: 'Rename Conversation',
-      placeholder: 'Enter new conversation title'
+      placeholder: 'Enter new conversation title',
+      startConversation: 'Start a new conversation...',
+      messageCount: '{count} messages',
+      startChat: 'Start Chat'
     },
 
     // Input Box
@@ -172,7 +175,25 @@ export default {
       generating: 'Generating...',
       copyCode: 'Copy Code',
       regenerate: 'Regenerate',
-      delete: 'Delete Message'
+      delete: 'Delete Message',
+      thinkingProcess: 'Thinking Process',
+      interrupted: 'Generation Interrupted',
+      query: 'Query',
+      referenceSources: 'Reference Sources'
+    },
+
+    // Tools
+    tools: {
+      webSearch: 'Web Search',
+      codeInterpreter: 'Code Interpreter',
+      fileReader: 'File Reader'
+    },
+
+    // Time
+    time: {
+      justNow: 'Just now',
+      minutesAgo: '{minutes} minutes ago',
+      hoursAgo: '{hours} hours ago'
     },
 
     // Files
@@ -192,7 +213,42 @@ export default {
       title: 'Profile',
       username: 'Username',
       email: 'Email',
-      avatar: 'Avatar'
+      avatar: 'Avatar',
+      nickname: 'Nickname',
+      bio: 'Bio',
+      usernameNotEditable: 'Username cannot be changed',
+      nicknamePlaceholder: 'Enter nickname',
+      emailPlaceholder: 'Enter email',
+      bioPlaceholder: 'Tell us about yourself...',
+      conversations: 'Conversations',
+      messages: 'Messages',
+      days: 'Days',
+      editProfile: 'Edit Profile',
+      reset: 'Reset',
+      save: 'Save',
+      saving: 'Saving...',
+      saveSuccess: 'Saved successfully',
+      saveError: 'Save failed',
+      connectedAccounts: 'Connected Accounts',
+      connected: 'Connected',
+      bound: 'Bound',
+      digitalTwin: 'Digital Twin',
+      enabled: 'Enabled',
+      disabled: 'Disabled',
+      digitalTwinDescription: 'Configure AI to answer questions in your identity and style, creating your exclusive digital twin',
+      createDigitalTwin: 'Create Digital Twin',
+      editDigitalTwin: 'Edit Digital Twin',
+      displayName: 'Display Name',
+      lastUpdated: 'Last Updated',
+      notSet: 'Not Set',
+      completeness: 'Completeness',
+      uploadAvatar: 'Avatar upload feature coming soon',
+      today: 'Today',
+      yesterday: 'Yesterday',
+      daysAgo: '{days} days ago',
+      weeksAgo: '{weeks} weeks ago',
+      monthsAgo: '{months} months ago',
+      saveErrorOccurred: 'An error occurred while saving'
     },
     appearance: {
       title: 'Appearance',
@@ -200,7 +256,9 @@ export default {
       light: 'Light',
       dark: 'Dark',
       auto: 'System',
-      language: 'Language'
+      language: 'Language',
+      languagePreference: 'Language Preference',
+      languageDescription: 'Choose interface display language'
     },
     data: {
       title: 'Data Management',
@@ -228,7 +286,9 @@ export default {
     loginFailed: 'Login failed',
     sendFailed: 'Send failed',
     uploadFailed: 'Upload failed',
-    deleteFailed: 'Delete failed'
+    deleteFailed: 'Delete failed',
+    sendMessageFailed: 'Failed to send message: {error}',
+    copyFailed: 'Copy failed'
   },
 
   // Success Messages

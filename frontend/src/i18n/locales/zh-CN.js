@@ -83,7 +83,10 @@ export default {
       deleteTitle: '删除对话',
       deleteConfirm: '确定要删除这个对话吗？此操作无法撤销。',
       renameTitle: '重命名对话',
-      placeholder: '输入新的对话标题'
+      placeholder: '输入新的对话标题',
+      startConversation: '开始一段新的对话吧...',
+      messageCount: '{count} 条消息',
+      startChat: '开始对话'
     },
 
     // 输入框
@@ -172,7 +175,25 @@ export default {
       generating: '生成中...',
       copyCode: '复制代码',
       regenerate: '重新生成',
-      delete: '删除消息'
+      delete: '删除消息',
+      thinkingProcess: '思考过程',
+      interrupted: '生成已中断',
+      query: '查询',
+      referenceSources: '参考来源'
+    },
+
+    // 工具
+    tools: {
+      webSearch: '网络搜索',
+      codeInterpreter: '代码执行',
+      fileReader: '文件读取'
+    },
+
+    // 时间
+    time: {
+      justNow: '刚刚',
+      minutesAgo: '{minutes} 分钟前',
+      hoursAgo: '{hours} 小时前'
     },
 
     // 文件
@@ -192,7 +213,42 @@ export default {
       title: '个人资料',
       username: '用户名',
       email: '邮箱',
-      avatar: '头像'
+      avatar: '头像',
+      nickname: '昵称',
+      bio: '个人简介',
+      usernameNotEditable: '用户名不可修改',
+      nicknamePlaceholder: '输入昵称',
+      emailPlaceholder: '输入邮箱',
+      bioPlaceholder: '介绍一下自己...',
+      conversations: '对话',
+      messages: '消息',
+      days: '天数',
+      editProfile: '编辑资料',
+      reset: '重置',
+      save: '保存',
+      saving: '保存中...',
+      saveSuccess: '保存成功',
+      saveError: '保存失败',
+      connectedAccounts: '关联账号',
+      connected: '已连接',
+      bound: '已绑定',
+      digitalTwin: '数字分身',
+      enabled: '已启用',
+      disabled: '已停用',
+      digitalTwinDescription: '配置AI以你的身份和风格回答问题，打造专属数字分身',
+      createDigitalTwin: '创建数字分身',
+      editDigitalTwin: '编辑数字分身',
+      displayName: '显示名称',
+      lastUpdated: '最后更新',
+      notSet: '未设置',
+      completeness: '完整度',
+      uploadAvatar: '头像上传功能即将推出',
+      today: '今天',
+      yesterday: '昨天',
+      daysAgo: '{days}天前',
+      weeksAgo: '{weeks}周前',
+      monthsAgo: '{months}月前',
+      saveErrorOccurred: '保存过程中发生错误'
     },
     appearance: {
       title: '外观',
@@ -200,7 +256,9 @@ export default {
       light: '浅色',
       dark: '深色',
       auto: '跟随系统',
-      language: '语言'
+      language: '语言',
+      languagePreference: '语言偏好',
+      languageDescription: '选择界面显示语言'
     },
     data: {
       title: '数据管理',
@@ -220,7 +278,7 @@ export default {
 
   // 错误消息
   error: {
-    network: '网络错误，请检查网络连接',
+    network: '网络错误,请检查网络连接',
     unauthorized: '未授权，请重新登录',
     notFound: '未找到请求的资源',
     serverError: '服务器错误，请稍后重试',
@@ -228,7 +286,9 @@ export default {
     loginFailed: '登录失败',
     sendFailed: '发送失败',
     uploadFailed: '上传失败',
-    deleteFailed: '删除失败'
+    deleteFailed: '删除失败',
+    sendMessageFailed: '发送消息失败: {error}',
+    copyFailed: '复制失败'
   },
 
   // 成功消息

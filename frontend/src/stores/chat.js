@@ -74,7 +74,19 @@ export const useChatStore = defineStore('chat', {
     isSending: (state) => state.sending,
     currentModel: (state) => state.conversationConfig.model,
     isThinkModeEnabled: (state) => state.conversationConfig.thinkMode,
-    isWebSearchEnabled: (state) => state.conversationConfig.webSearch
+    isWebSearchEnabled: (state) => state.conversationConfig.webSearch,
+    // 获取当前模型的提供商
+    currentProvider: (state) => {
+      const model = state.availableModels.find(m => m.name === state.conversationConfig.model)
+      return model?.provider || 'zhipu' // 默认返回 zhipu
+    },
+    // 获取当前提供商的头像URL
+    currentProviderAvatar: (state) => {
+      const model = state.availableModels.find(m => m.name === state.conversationConfig.model)
+      const providerName = model?.provider || 'zhipu'
+      const provider = state.providers.find(p => p.name === providerName)
+      return provider?.avatar_url || null
+    }
   },
 
   actions: {
@@ -435,6 +447,10 @@ export const useChatStore = defineStore('chat', {
         this.messages.push(userMessage)
         this.processedMessageIds.add(userMessage.id)
 
+        // 获取当前模型的提供商
+        const currentModel = this.availableModels.find(m => m.name === this.conversationConfig.model)
+        const modelProvider = currentModel?.provider || 'zhipu'
+
         const tempMessageId = `temp-${Date.now()}`
         this.streamingMessage = {
           id: tempMessageId,
@@ -442,7 +458,8 @@ export const useChatStore = defineStore('chat', {
           content: '',
           thinking: '',
           conversation_id: this.currentConversation.id,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          model_provider: modelProvider // 添加提供商信息
         }
         this.streamingThinking = ''
 
@@ -623,12 +640,17 @@ export const useChatStore = defineStore('chat', {
      */
     async savePartialMessage(content, tempId) {
       try {
+        // 获取当前模型的提供商
+        const currentModel = this.availableModels.find(m => m.name === this.conversationConfig.model)
+        const modelProvider = currentModel?.provider || 'zhipu'
+
         const { data, error } = await supabase
           .from('messages')
           .insert({
             conversation_id: this.currentConversation.id,
             role: 'assistant',
-            content: content + '\n\n[生成已中断]'
+            content: content + '\n\n[生成已中断]',
+            model_provider: modelProvider // 添加提供商信息
           })
           .select()
           .single()

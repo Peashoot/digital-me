@@ -52,17 +52,42 @@ const { t } = useI18n()
 const copied = ref(false)
 
 const highlightedCode = computed(() => {
-  // Ensure lang is a registered language, otherwise fall back to auto-detection
-  const language = props.lang && hljs.getLanguage(props.lang) ? props.lang : 'plaintext'
+  // 如果是 plaintext 或空语言，直接返回转义后的代码，不进行高亮
+  if (!props.lang || props.lang === 'plaintext' || props.lang === 'text') {
+    // 转义 HTML 特殊字符
+    return props.code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
+  }
+
+  // 检查语言是否已注册
+  const language = hljs.getLanguage(props.lang) ? props.lang : null
+
   try {
-    const result = hljs.highlight(props.code, {
-      language,
-      ignoreIllegals: true
-    })
-    return result.value
+    if (language) {
+      // 使用指定语言进行高亮
+      const result = hljs.highlight(props.code, {
+        language,
+        ignoreIllegals: true
+      })
+      return result.value
+    } else {
+      // 语言未注册，使用自动检测
+      const result = hljs.highlightAuto(props.code)
+      return result.value
+    }
   } catch (e) {
     console.error('Highlighting failed:', e)
-    return props.code // Fallback to plain text
+    // 出错时返回转义后的原始代码
+    return props.code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;')
   }
 })
 
